@@ -1,0 +1,56 @@
+[
+    {
+        "id": 1,
+        "name": "iPhone 16 Pro",
+        "price": 999,
+        "image": "https://www.sparkle-pro.co.uk/api/images/iphone16.png",
+        "description": "Latest iPhone with advanced features",
+        "category": "smartphone",
+        "specs": ["6.1\" display", "128GB storage", "A18 Pro chip"]
+    },
+    {
+        "id": 2,
+        "name": "Samsung Galaxy S25",
+        "price": 899,
+        "image": "https://www.sparkle-pro.co.uk/api/images/s25.png",
+        "description": "Powerful Android smartphone",
+        "category": "smartphone",
+        "specs": ["6.2\" display", "256GB storage", "Snapdragon 8 Gen 3"]
+    },
+    {
+        "id": 3,
+        "name": "MacBook M4",
+        "price": 1299,
+        "image": "https://www.sparkle-pro.co.uk/api/images/macbookm4.png",
+        "description": "High-performance laptop",
+        "category": "laptop",
+        "specs": ["13\" display", "512GB SSD", "M4 chip"]
+    },
+    {
+        "id": 4,
+        "name": "Samsung S24 Ultra",
+        "price": 1199,
+        "image": "https://www.sparkle-pro.co.uk/api/images/s24ultra.png",
+        "description": "Premium flagship phone",
+        "category": "smartphone",
+        "specs": ["6.8\" display", "512GB storage", "S Pen included"]
+    },
+    {
+        "id": 5,
+        "name": "iPhone 16 Max",
+        "price": 1099,
+        "image": "https://www.sparkle-pro.co.uk/api/images/iphone16max.png",
+        "description": "Large screen iPhone",
+        "category": "smartphone",
+        "specs": ["6.7\" display", "256GB storage", "A18 chip"]
+    },
+    {
+        "id": 6,
+        "name": "ASUS TUF Gaming",
+        "price": 799,
+        "image": "https://www.sparkle-pro.co.uk/api/images/asustuf1.png",
+        "description": "Gaming laptop with powerful specs",
+        "category": "laptop",
+        "specs": ["15.6\" display", "1TB SSD", "RTX 4060"]
+    }
+]

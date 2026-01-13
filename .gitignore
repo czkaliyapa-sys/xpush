@@ -1,0 +1,6 @@
+# Ignore only zip archives
+*.zip
+
+# OS junk
+.DS_Store
+

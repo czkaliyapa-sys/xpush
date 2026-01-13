@@ -1,0 +1,10 @@
+{
+    "name": "sparkle-pro/api",
+    "description": "Simple PHP API for Sparkle Pro",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "SparklePro\\": "src/"
+        }
+    }
+}

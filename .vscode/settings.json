@@ -1,0 +1,10 @@
+{
+    "github.copilot.chat.agent.autoFix": true,
+    "github.copilot.chat.alternateGptPrompt.enabled": true,
+    "github.copilot.chat.alternateGeminiModelFPrompt.enabled": true,
+    "github.copilot.chat.anthropic.tools.websearch.enabled": true,
+    "github.copilot.chat.codesearch.enabled": true,
+    "github.copilot.chat.tools.memory.enabled": true,
+    "github.copilot.chat.scopeSelection": true,
+    "github.copilot.chat.notebook.enhancedNextEditSuggestions.enabled": true
+}
