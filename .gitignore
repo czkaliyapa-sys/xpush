@@ -4,3 +4,8 @@
 # OS junk
 .DS_Store
 
+node_modules/
+build/
+.cache/
+npm-debug.log
+
