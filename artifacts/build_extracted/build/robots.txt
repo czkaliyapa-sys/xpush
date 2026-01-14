@@ -1,0 +1,38 @@
+# https://www.robotstxt.org/robotstxt.html
+# Xtrapush Gadgets - Robots Configuration
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /dashboard/private
+Disallow: /*.json$
+Disallow: /*?*session=
+Disallow: /*?*token=
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 0.5
+
+# Sitemap locations
+Sitemap: https://itsxtrapush.com/sitemap.xml
+
+# Allow Google specific bots
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+# Allow Bing
+User-agent: Bingbot
+Allow: /
+
+# Allow other major search engines
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
