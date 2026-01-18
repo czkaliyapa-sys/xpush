@@ -113,19 +113,25 @@ const GadgetDetail = () => {
     const relevantVariants = selectedStorage 
       ? variants.filter(v => v.storage === selectedStorage)
       : variants;
+    
+    // Check if gadget is in pre-order mode
+    const isPreOrderMode = gadget?.is_pre_order || gadget?.isPreOrder;
+    
     const inStockConditions = new Set();
     relevantVariants.forEach(v => {
       const stock = parseInt(v.stock_quantity ?? 0, 10);
-      if (stock > 0) {
+      // Show all conditions in pre-order mode, otherwise only in-stock ones
+      if (isPreOrderMode || stock > 0) {
         inStockConditions.add(v.condition_status);
       }
     });
+    
     // Convert tokens to labels and filter
     return conditionOptions.filter(label => {
       const token = CONDITION_LABEL_TO_TOKEN[label];
       return inStockConditions.has(token);
     });
-  }, [variants, selectedStorage, conditionOptions]);
+  }, [variants, selectedStorage, conditionOptions, gadget?.is_pre_order, gadget?.isPreOrder]);
 
   // Check if current selection has stock
   const currentSelectionInStock = React.useMemo(() => {
@@ -966,7 +972,8 @@ const GadgetDetail = () => {
             else if (typeof gadget?.inStock !== 'undefined') stockCount = gadget.inStock ? 1 : 0;
             else stockCount = 0;
           }
-          const isAvailable = stockCount > 0;
+          const isPreOrderMode = gadget?.is_pre_order || gadget?.isPreOrder;
+          const isAvailable = stockCount > 0 || isPreOrderMode;
           const hidePrice = stockCount < 0;
           const showActions = true;
           
@@ -1013,7 +1020,7 @@ const GadgetDetail = () => {
               </motion.p>
               {showActions && (
                 <>
-                  {isAvailable ? (
+                  {(isAvailable && !isPreOrderMode) ? (
                     <>
                       <motion.button
                         variants={ctaItem}
@@ -1034,7 +1041,7 @@ const GadgetDetail = () => {
                         Pay in installments
                       </motion.button>
                     </>
-                  ) : (
+                  ) : isPreOrderMode ? (
                     <motion.button
                       variants={ctaItem}
                       whileHover={{ scale: 1.03 }}
@@ -1065,6 +1072,16 @@ const GadgetDetail = () => {
                       className="px-6 py-3 rounded-lg text-white font-bold shadow-lg transition bg-gray-800 hover:bg-gray-900"
                     >
                       Pre-Order Now
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      variants={ctaItem}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={true}
+                      className="px-6 py-3 rounded-lg text-gray-400 font-bold shadow-lg transition bg-gray-600 cursor-not-allowed"
+                    >
+                      Out of Stock
                     </motion.button>
                   )}
                 </>

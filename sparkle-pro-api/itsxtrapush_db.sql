@@ -5466,6 +5466,7 @@ CREATE TABLE `gadgets` (
   `model3d_rotation` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`model3d_rotation`)),
   `model3d_config` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`model3d_config`)),
   `in_stock` tinyint(1) DEFAULT 1,
+  `is_pre_order` tinyint(1) DEFAULT 0,
   `stock_quantity` int(11) DEFAULT 0,
   `total_variant_stock` int(11) DEFAULT 0,
   `has_variants` tinyint(1) DEFAULT 0,
@@ -5633,16 +5634,53 @@ DELIMITER ;
 DELIMITER $$
 CREATE TRIGGER `maintain_gadget_variant_data_update` AFTER UPDATE ON `gadget_variants` FOR EACH ROW BEGIN
     CALL RefreshGadgetVariantData(NEW.gadget_id);
+    
+    -- Enable pre-order when all variants reach zero stock
+    DECLARE active_variant_count INT;
+    DECLARE zero_stock_variant_count INT;
+    
+    SELECT COUNT(*) INTO active_variant_count
+    FROM gadget_variants 
+    WHERE gadget_id = NEW.gadget_id AND is_active = 1;
+    
+    SELECT COUNT(*) INTO zero_stock_variant_count
+    FROM gadget_variants 
+    WHERE gadget_id = NEW.gadget_id AND is_active = 1 AND stock_quantity = 0;
+    
+    -- If all active variants have zero stock, enable pre-order flag
+    IF active_variant_count > 0 AND active_variant_count = zero_stock_variant_count THEN
+        UPDATE gadgets 
+        SET is_pre_order = 1, 
+            in_stock = 0,
+            updated_at = NOW()
+        WHERE id = NEW.gadget_id;
+    -- If any variant has stock, disable pre-order
+    ELSEIF zero_stock_variant_count < active_variant_count THEN
+        UPDATE gadgets 
+        SET is_pre_order = 0,
+            updated_at = NOW()
+        WHERE id = NEW.gadget_id;
+    END IF;
 END
 $$
 DELIMITER ;
 DELIMITER $$
 CREATE TRIGGER `update_gadget_stock_after_variant_delete` AFTER DELETE ON `gadget_variants` FOR EACH ROW BEGIN
     DECLARE variant_count INT;
+    DECLARE active_variant_count INT;
+    DECLARE zero_stock_variant_count INT;
     
     SELECT COUNT(*) INTO variant_count
     FROM gadget_variants 
     WHERE gadget_id = OLD.gadget_id;
+    
+    SELECT COUNT(*) INTO active_variant_count
+    FROM gadget_variants 
+    WHERE gadget_id = OLD.gadget_id AND is_active = 1;
+    
+    SELECT COUNT(*) INTO zero_stock_variant_count
+    FROM gadget_variants 
+    WHERE gadget_id = OLD.gadget_id AND is_active = 1 AND stock_quantity = 0;
     
     UPDATE gadgets 
     SET total_variant_stock = (
@@ -5652,6 +5690,27 @@ CREATE TRIGGER `update_gadget_stock_after_variant_delete` AFTER DELETE ON `gadge
     ),
     has_variants = IF(variant_count > 0, 1, 0)
     WHERE id = OLD.gadget_id;
+    
+    -- Update pre-order status after deletion
+    IF active_variant_count > 0 AND active_variant_count = zero_stock_variant_count THEN
+        UPDATE gadgets 
+        SET is_pre_order = 1, 
+            in_stock = 0,
+            updated_at = NOW()
+        WHERE id = OLD.gadget_id;
+    ELSEIF active_variant_count = 0 THEN
+        -- No active variants left, disable pre-order
+        UPDATE gadgets 
+        SET is_pre_order = 0,
+            updated_at = NOW()
+        WHERE id = OLD.gadget_id;
+    ELSE
+        -- Some variants still have stock
+        UPDATE gadgets 
+        SET is_pre_order = 0,
+            updated_at = NOW()
+        WHERE id = OLD.gadget_id;
+    END IF;
 END
 $$
 DELIMITER ;
@@ -5665,6 +5724,27 @@ CREATE TRIGGER `update_gadget_stock_after_variant_insert` AFTER INSERT ON `gadge
     ),
     has_variants = 1
     WHERE id = NEW.gadget_id;
+    
+    -- Check if this insert affects pre-order status
+    DECLARE active_variant_count INT;
+    DECLARE zero_stock_variant_count INT;
+    
+    SELECT COUNT(*) INTO active_variant_count
+    FROM gadget_variants 
+    WHERE gadget_id = NEW.gadget_id AND is_active = 1;
+    
+    SELECT COUNT(*) INTO zero_stock_variant_count
+    FROM gadget_variants 
+    WHERE gadget_id = NEW.gadget_id AND is_active = 1 AND stock_quantity = 0;
+    
+    -- If all active variants have zero stock, enable pre-order
+    IF active_variant_count > 0 AND active_variant_count = zero_stock_variant_count THEN
+        UPDATE gadgets 
+        SET is_pre_order = 1, 
+            in_stock = 0,
+            updated_at = NOW()
+        WHERE id = NEW.gadget_id;
+    END IF;
 END
 $$
 DELIMITER ;
