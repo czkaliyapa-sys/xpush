@@ -1,0 +1,34 @@
+{
+  "short_name": "Xtrapush Gadgets",
+  "name": "Xtrapush Gadgets : A little push to get you there",
+  "description": "Shop smartphones, laptops, tablets and accessories with warranty, flexible finance and trade-in options",
+  "icons": [
+    {
+      "src": "lastone.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "lastone.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "lastone.png",
+      "type": "image/png",
+      "sizes": "48x48 32x32 16x16",
+      "purpose": "any"
+    }
+  ],
+  "start_url": ".",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#051323",
+  "background_color": "#051323",
+  "categories": ["shopping", "electronics", "technology"],
+  "lang": "en-GB",
+  "dir": "ltr"
+}
