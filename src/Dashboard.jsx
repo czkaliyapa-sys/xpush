@@ -532,16 +532,21 @@ const DashboardGadgets = () => {
     if (nextQty < 0) nextQty = 0;
     setVariantLoading(true);
     try {
+      console.log('🔍 Updating variant stock:', { selectedId, variantId, userUid: user.uid, stockQuantity: nextQty });
       const res = await gadgetsAPI.adminUpdateVariant(selectedId, variantId, user.uid, {
         stockQuantity: nextQty
       });
-      if (res.success) {
+      console.log('📊 API Response:', res);
+      if (res && res.success) {
+        console.log('✅ Stock update successful');
         setVariantStatus({ type: 'success', msg: `Stock updated to ${nextQty}` });
         await loadVariants();
       } else {
-        setVariantStatus({ type: 'error', msg: res.error || 'Failed to update stock' });
+        console.log('❌ Stock update failed:', res);
+        setVariantStatus({ type: 'error', msg: res?.error || 'Failed to update stock' });
       }
     } catch (e) {
+      console.error('💥 Stock update error:', e);
       setVariantStatus({ type: 'error', msg: e.message || 'Error updating stock' });
     } finally {
       setVariantLoading(false);
@@ -579,6 +584,19 @@ const DashboardGadgets = () => {
     if (!isAdmin() || !user?.uid || !selectedId || !editingVariantId) { setVariantStatus({ type: 'error', msg: 'Admin permissions required or no variant selected' }); return; }
     setVariantLoading(true);
     try {
+      console.log('🔍 Updating variant:', { 
+        selectedId, 
+        editingVariantId, 
+        userUid: user.uid, 
+        variantData: {
+          color: variantForm.color,
+          storage: variantForm.storage,
+          condition: variantForm.condition,
+          price: variantForm.price,
+          stockQuantity: variantForm.stockQuantity
+        }
+      });
+      
       const res = await gadgetsAPI.adminUpdateVariant(selectedId, editingVariantId, user.uid, {
         color: variantForm.color !== undefined ? String(variantForm.color).trim() : undefined,
         colorHex: variantForm.colorHex !== undefined ? String(variantForm.colorHex).trim() : undefined,
@@ -589,14 +607,20 @@ const DashboardGadgets = () => {
         stockQuantity: String(variantForm.stockQuantity).trim() ? parseInt(variantForm.stockQuantity, 10) : undefined,
         sku: typeof variantForm.sku !== 'undefined' ? String(variantForm.sku).trim() : undefined
       });
-      if (res.success) {
+      
+      console.log('📊 Update Variant API Response:', res);
+      
+      if (res && res.success) {
+        console.log('✅ Variant update successful');
         setVariantStatus({ type: 'success', msg: 'Variant updated successfully' });
         resetVariantForm();
         await loadVariants();
       } else {
-        setVariantStatus({ type: 'error', msg: res.error || 'Failed to update variant' });
+        console.log('❌ Variant update failed:', res);
+        setVariantStatus({ type: 'error', msg: res?.error || 'Failed to update variant' });
       }
     } catch (e) {
+      console.error('💥 Variant update error:', e);
       setVariantStatus({ type: 'error', msg: e.message || 'Error updating variant' });
     } finally { setVariantLoading(false); }
   };

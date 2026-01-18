@@ -126,11 +126,14 @@ const apiCall = async (endpoint, options = {}) => {
         endpoint,
         baseURL: client.defaults.baseURL,
         fullURL: `${client.defaults.baseURL}${endpoint}`,
-        method: config.method
+        method: config.method,
+        data: config.data
       });
     }
     
     const response = await client(config);
+    console.log('📥 Raw API Response:', response);
+    console.log('📤 Response Data:', response.data);
     return response.data;
   } catch (error) {
     // Enhance error logging to surface backend response details
@@ -578,13 +581,20 @@ export const gadgetsAPI = {
 
   // Admin: update a variant for a gadget
   adminUpdateVariant: async (gadgetId, variantId, adminUid, variantData) => {
-    return await apiCall(`/admin/gadgets/${gadgetId}/variants/${variantId}`, {
+    console.log('🔧 API Service - Updating variant:', { gadgetId, variantId, adminUid, variantData });
+    const payload = {
+      adminUid,
+      ...gadgetsAPI._toVariantPayload(variantData)
+    };
+    console.log('📦 Prepared payload:', payload);
+    
+    const result = await apiCall(`/admin/gadgets/${gadgetId}/variants/${variantId}`, {
       method: 'PUT',
-      body: JSON.stringify({
-        adminUid,
-        ...gadgetsAPI._toVariantPayload(variantData)
-      })
+      body: JSON.stringify(payload)
     });
+    
+    console.log('📡 API Response received:', result);
+    return result;
   },
 
   // Admin: delete (soft-delete) a variant
