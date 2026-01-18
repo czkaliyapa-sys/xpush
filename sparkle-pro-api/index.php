@@ -5079,13 +5079,13 @@ function updateGadgetVariant($gadgetId, $variantId) {
         if (array_key_exists('color', $data)) { 
             $fields[] = 'color = ?'; 
             $types .= 's'; 
-            $colorVal = ($data['color'] === null || trim((string)$data['color']) === '') ? null : trim((string)$data['color']);
+            $colorVal = ($data['color'] ?? null) === null || trim((string)($data['color'] ?? '')) === '' ? null : trim((string)$data['color']);
             $params[] = $colorVal; 
         }
         if (array_key_exists('colorHex', $data) || array_key_exists('color_hex', $data)) { 
             $fields[] = 'color_hex = ?'; 
             $types .= 's'; 
-            $hex = isset($data['colorHex']) ? $data['colorHex'] : $data['color_hex'];
+            $hex = $data['colorHex'] ?? $data['color_hex'] ?? null;
             $hexVal = ($hex === null || trim((string)$hex) === '') ? null : trim((string)$hex);
             $params[] = $hexVal; 
         }
