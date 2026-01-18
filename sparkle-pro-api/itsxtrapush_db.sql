@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Jan 16, 2026 at 02:36 PM
+-- Generation Time: Jan 18, 2026 at 07:16 PM
 -- Server version: 10.11.13-MariaDB-0ubuntu0.24.04.1
 -- PHP Version: 8.4.14
 
@@ -25,6 +25,26 @@ DELIMITER $$
 --
 -- Procedures
 --
+CREATE DEFINER=`xuser`@`%` PROCEDURE `RefreshGadgetVariantData` (IN `gadget_id_param` INT)   BEGIN
+    -- Update has_variants flag
+    UPDATE gadgets g
+    SET has_variants = (
+        SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END
+        FROM gadget_variants gv 
+        WHERE gv.gadget_id = g.id AND gv.is_active = 1
+    )
+    WHERE g.id = gadget_id_param OR gadget_id_param IS NULL;
+    
+    -- Update total_variant_stock
+    UPDATE gadgets g
+    SET total_variant_stock = (
+        SELECT COALESCE(SUM(stock_quantity), 0)
+        FROM gadget_variants gv 
+        WHERE gv.gadget_id = g.id AND gv.is_active = 1
+    )
+    WHERE g.id = gadget_id_param OR gadget_id_param IS NULL;
+END$$
+
 CREATE DEFINER=`xuser`@`%` PROCEDURE `sp_create_application` (IN `p_reference` VARCHAR(50), IN `p_user_uid` VARCHAR(255), IN `p_gadget_id` INT, IN `p_gadget_name` VARCHAR(255), IN `p_variant_id` INT, IN `p_variant_storage` VARCHAR(100), IN `p_variant_color` VARCHAR(100), IN `p_variant_condition` VARCHAR(50), IN `p_plan_type` VARCHAR(50), IN `p_plan_weeks` INT, IN `p_deposit_amount` DECIMAL(12,2), IN `p_weekly_amount` DECIMAL(12,2), IN `p_total_amount` DECIMAL(12,2), IN `p_full_name` VARCHAR(255), IN `p_email` VARCHAR(255), IN `p_phone` VARCHAR(50), IN `p_date_of_birth` DATE, IN `p_national_id` VARCHAR(100), IN `p_address` TEXT, IN `p_town` VARCHAR(100), IN `p_postcode` VARCHAR(20), IN `p_country` VARCHAR(100), IN `p_employment_status` VARCHAR(100), IN `p_employer_name` VARCHAR(255), IN `p_job_title` VARCHAR(255), IN `p_monthly_income` VARCHAR(100), IN `p_employment_duration` VARCHAR(100), IN `p_employer_phone` VARCHAR(50), OUT `p_application_id` INT)   BEGIN
     -- Insert the application
     INSERT INTO installment_applications (
@@ -91,7 +111,7 @@ CREATE TABLE `analytics_cache` (
 --
 
 INSERT INTO `analytics_cache` (`id`, `order_stats`, `gadget_stats`, `variant_stats`, `subscription_stats`, `user_stats`, `revenue_stats`, `installment_stats`, `tradein_stats`, `visitor_stats`, `conversion_stats`, `popular_products`, `performance_stats`, `last_updated`) VALUES
-(1, '{\"total_orders\":\"17\",\"orders_this_month\":\"17\",\"completed_orders\":\"0\",\"pending_orders\":\"13\",\"cancelled_orders\":\"0\",\"dispatched_orders\":\"0\"}', '{\"total_gadgets\":\"46\",\"smartphones_count\":\"11\",\"laptops_count\":\"4\",\"in_stock_count\":\"46\",\"total_stock_units\":\"412\"}', NULL, '{\"total_subscriptions\":\"2\",\"plus_count\":\"2\",\"premium_count\":\"0\",\"active_count\":\"2\"}', '{\"total_users\":\"7\",\"active_subscribers\":\"2\"}', '{\"mwk\":{\"total\":295399,\"this_month\":295399},\"gbp\":{\"total\":105.49,\"this_month\":105.49}}', NULL, NULL, '{\"total_unique_visitors\":\"349\",\"visitors_this_month\":\"319\",\"visitors_this_week\":\"310\",\"visitors_today\":\"14\",\"page_views_month\":\"2381\",\"product_views_month\":\"176\"}', '{\"page_views\":\"0\",\"checkout_completes\":\"0\",\"conversion_rate\":0}', '[{\"gadget_id\":null,\"product_name\":null,\"total_quantity\":\"17\",\"total_revenue\":\"295399.00\"}]', NULL, '2026-01-16 14:00:02');
+(1, '{\"total_orders\":\"24\",\"orders_this_month\":\"24\",\"completed_orders\":\"0\",\"pending_orders\":\"20\",\"cancelled_orders\":\"0\",\"dispatched_orders\":\"0\"}', '{\"total_gadgets\":\"46\",\"smartphones_count\":\"11\",\"laptops_count\":\"4\",\"in_stock_count\":\"46\",\"total_stock_units\":\"0\"}', NULL, '{\"total_subscriptions\":\"2\",\"plus_count\":\"2\",\"premium_count\":\"0\",\"active_count\":\"2\"}', '{\"total_users\":\"7\",\"active_subscribers\":\"2\"}', '{\"mwk\":{\"total\":425399,\"this_month\":425399},\"gbp\":{\"total\":10172.15,\"this_month\":10172.15}}', NULL, NULL, '{\"total_unique_visitors\":\"508\",\"visitors_this_month\":\"477\",\"visitors_this_week\":\"469\",\"visitors_today\":\"90\",\"page_views_month\":\"2583\",\"product_views_month\":\"198\"}', '{\"page_views\":\"0\",\"checkout_completes\":\"0\",\"conversion_rate\":0}', '[{\"gadget_id\":null,\"product_name\":null,\"total_quantity\":\"19\",\"total_revenue\":\"355399.00\"},{\"gadget_id\":\"1\",\"product_name\":\"MacBook Pro M4\",\"total_quantity\":\"5\",\"total_revenue\":\"70000.00\"}]', NULL, '2026-01-18 19:00:02');
 
 -- --------------------------------------------------------
 
@@ -936,7 +956,174 @@ INSERT INTO `analytics_events` (`id`, `session_id`, `event_type`, `data_json`, `
 (819, 'session_1768568834984_eua7u8c65', 'session_end', '{\"duration_seconds\":0,\"timestamp\":\"2026-01-16T13:07:15.014Z\"}', '2026-01-16 13:07:40'),
 (820, 'session_1768572309949_fvwrpl9nf', 'session_end', '{\"duration_seconds\":32,\"timestamp\":\"2026-01-16T14:05:41.977Z\"}', '2026-01-16 14:05:42'),
 (821, 'session_1768572342065_uyzc3jtzl', 'session_end', '{\"duration_seconds\":51,\"timestamp\":\"2026-01-16T14:06:33.485Z\"}', '2026-01-16 14:06:33'),
-(822, 'session_1768573380914_611o8ldmo', 'session_end', '{\"duration_seconds\":42,\"timestamp\":\"2026-01-16T14:23:43.288Z\"}', '2026-01-16 14:23:43');
+(822, 'session_1768573380914_611o8ldmo', 'session_end', '{\"duration_seconds\":42,\"timestamp\":\"2026-01-16T14:23:43.288Z\"}', '2026-01-16 14:23:43'),
+(823, 'session_1768578057619_03nbmtia2', 'session_end', '{\"duration_seconds\":57,\"timestamp\":\"2026-01-16T15:41:55.241Z\"}', '2026-01-16 15:41:55'),
+(824, 'session_1768578750515_zv2aq47uq', 'session_end', '{\"duration_seconds\":169,\"timestamp\":\"2026-01-16T15:55:19.564Z\"}', '2026-01-16 15:55:19'),
+(825, 'session_1768578375479_tb6y4caov', 'session_end', '{\"duration_seconds\":814,\"timestamp\":\"2026-01-16T15:59:49.849Z\"}', '2026-01-16 15:59:50'),
+(826, 'session_1768656786875_8rrwny4ws', 'session_end', '{\"duration_seconds\":104,\"timestamp\":\"2026-01-17T13:34:51.239Z\"}', '2026-01-17 13:34:51'),
+(827, 'b03c094c5094efd1f4773a897e8c6b3b', 'view_product', '{\"productId\":17,\"name\":\"MacBook Pro 2021 16-inch\",\"brand\":\"Apple\",\"model\":\"MacBook Pro 2021\",\"category\":\"laptop\",\"price\":3000000,\"condition\":\"new\"}', '2026-01-17 13:34:59'),
+(828, 'session_1768656891385_nf8mprzea', 'session_end', '{\"duration_seconds\":12796,\"timestamp\":\"2026-01-17T17:08:08.348Z\"}', '2026-01-17 17:08:08'),
+(829, 'session_1768669688550_pnrkq51yv', 'session_end', '{\"duration_seconds\":37,\"timestamp\":\"2026-01-17T17:08:45.811Z\"}', '2026-01-17 17:08:45'),
+(830, 'session_1768669725894_0mwi5d52f', 'session_end', '{\"duration_seconds\":302,\"timestamp\":\"2026-01-17T17:13:48.678Z\"}', '2026-01-17 17:13:48'),
+(831, 'session_1768670070460_brtktx3it', 'session_end', '{\"duration_seconds\":104,\"timestamp\":\"2026-01-17T17:16:14.855Z\"}', '2026-01-17 17:16:14'),
+(832, 'session_1768670175028_73y528a9c', 'session_end', '{\"duration_seconds\":9362,\"timestamp\":\"2026-01-17T19:52:17.963Z\"}', '2026-01-17 19:52:18'),
+(833, 'session_1768670175028_73y528a9c', 'session_end', '{\"duration_seconds\":9362,\"timestamp\":\"2026-01-17T19:52:17.963Z\"}', '2026-01-17 19:52:18'),
+(834, 'session_1768679538188_y7hw6rc0h', 'session_end', '{\"duration_seconds\":7,\"timestamp\":\"2026-01-17T19:52:25.608Z\"}', '2026-01-17 19:52:25'),
+(835, 'session_1768679545857_d16clbvja', 'session_end', '{\"duration_seconds\":109,\"timestamp\":\"2026-01-17T19:54:15.382Z\"}', '2026-01-17 19:54:15'),
+(836, 'session_1768679655520_otm5d0zgz', 'session_end', '{\"duration_seconds\":61,\"timestamp\":\"2026-01-17T19:55:16.946Z\"}', '2026-01-17 19:55:17'),
+(837, 'session_1768679717062_wbyzjbv2s', 'session_end', '{\"duration_seconds\":346,\"timestamp\":\"2026-01-17T20:01:03.218Z\"}', '2026-01-17 20:01:03'),
+(838, 'b03c094c5094efd1f4773a897e8c6b3b', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":2777.78,\"brand\":\"Apple\"}', '2026-01-17 20:02:45'),
+(839, 'session_1768680153713_a00rnxdjg', 'session_end', '{\"duration_seconds\":38,\"timestamp\":\"2026-01-17T20:03:12.590Z\"}', '2026-01-17 20:03:12'),
+(840, 'b03c094c5094efd1f4773a897e8c6b3b', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":2777.78,\"brand\":\"Apple\"}', '2026-01-17 20:03:32'),
+(841, 'session_1768680192707_wyjw7yfxh', 'session_end', '{\"duration_seconds\":46,\"timestamp\":\"2026-01-17T20:03:59.679Z\"}', '2026-01-17 20:03:59'),
+(842, 'b03c094c5094efd1f4773a897e8c6b3b', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":2777.78,\"brand\":\"Apple\"}', '2026-01-17 20:04:07'),
+(843, 'session_1768680239788_2k5yof8nx', 'session_end', '{\"duration_seconds\":1672,\"timestamp\":\"2026-01-17T20:31:52.655Z\"}', '2026-01-17 20:31:52'),
+(844, 'session_1768681912835_ay931frl2', 'session_end', '{\"duration_seconds\":1426,\"timestamp\":\"2026-01-17T20:55:39.668Z\"}', '2026-01-17 20:55:39'),
+(845, 'session_1768680063339_75s21xydu', 'session_end', '{\"duration_seconds\":3278,\"timestamp\":\"2026-01-17T20:55:41.358Z\"}', '2026-01-17 20:55:41'),
+(846, 'session_1768683345028_fv3jyzdfb', 'session_end', '{\"duration_seconds\":66,\"timestamp\":\"2026-01-17T20:56:51.278Z\"}', '2026-01-17 20:56:51'),
+(847, 'session_1768683411521_vzuhr233u', 'session_end', '{\"duration_seconds\":83,\"timestamp\":\"2026-01-17T20:58:15.234Z\"}', '2026-01-17 20:58:15'),
+(848, 'b3a99d92641847200529cdeed6250014', 'pre_order', '{\"id\":1,\"title\":\"MacBook Pro M4\",\"price\":0,\"brand\":\"Apple\"}', '2026-01-17 21:01:26'),
+(849, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":1,\"name\":\"MacBook Pro M4\",\"brand\":\"Apple\",\"model\":\"MacBook Pro M4\",\"category\":\"laptop\",\"price\":0,\"condition\":\"new\"}', '2026-01-17 21:02:23'),
+(850, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 21:02:53'),
+(851, 'session_1768683495392_at1mtcxyv', 'session_end', '{\"duration_seconds\":2550,\"timestamp\":\"2026-01-17T21:40:46.289Z\"}', '2026-01-17 21:40:46'),
+(852, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 21:45:40'),
+(853, 'session_1768686046541_lutqgouf8', 'session_end', '{\"duration_seconds\":407,\"timestamp\":\"2026-01-17T21:47:33.984Z\"}', '2026-01-17 21:47:34'),
+(854, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 21:47:34'),
+(855, 'session_1768686511583_q6rhd02jt', 'session_end', '{\"duration_seconds\":59,\"timestamp\":\"2026-01-17T21:49:31.010Z\"}', '2026-01-17 21:49:31'),
+(856, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 21:49:31'),
+(857, 'session_1768686571174_b05um55k3', 'session_end', '{\"duration_seconds\":2,\"timestamp\":\"2026-01-17T21:49:33.941Z\"}', '2026-01-17 21:49:33'),
+(858, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 21:49:34'),
+(859, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":37,\"name\":\"Nvidea RTX 3060 Graphics Card\",\"brand\":\"Nvidea\",\"model\":\"3060\",\"category\":\"gaming\",\"price\":0,\"condition\":\"new\"}', '2026-01-17 21:50:24'),
+(860, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":33,\"name\":\"iPhone 17 Pro Max\",\"brand\":\"Apple\",\"model\":\"iphone17 \",\"category\":\"\",\"price\":0,\"condition\":\"new\"}', '2026-01-17 21:51:55'),
+(861, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 22:38:30'),
+(862, 'session_1768686574004_d46xqw9ly', 'session_end', '{\"duration_seconds\":3070,\"timestamp\":\"2026-01-17T22:40:44.058Z\"}', '2026-01-17 22:40:44'),
+(863, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 22:40:44'),
+(864, 'session_1768689644301_p0w8j3q3h', 'session_end', '{\"duration_seconds\":56,\"timestamp\":\"2026-01-17T22:41:40.408Z\"}', '2026-01-17 22:41:40'),
+(865, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 22:41:40'),
+(866, 'session_1768689700628_j5twxl4ih', 'session_end', '{\"duration_seconds\":7,\"timestamp\":\"2026-01-17T22:41:48.162Z\"}', '2026-01-17 22:41:48'),
+(867, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 22:41:48'),
+(868, 'session_1768689708248_s137c0nrm', 'session_end', '{\"duration_seconds\":56,\"timestamp\":\"2026-01-17T22:42:44.846Z\"}', '2026-01-17 22:42:44'),
+(869, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 22:42:45'),
+(870, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 22:44:20'),
+(871, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 22:44:44'),
+(872, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 22:45:11'),
+(873, 'session_1768689765081_bxq40ab8q', 'session_end', '{\"duration_seconds\":161,\"timestamp\":\"2026-01-17T22:45:27.033Z\"}', '2026-01-17 22:45:27'),
+(874, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 22:45:27'),
+(875, 'session_1768689927270_6k05cwjo4', 'session_end', '{\"duration_seconds\":629,\"timestamp\":\"2026-01-17T22:55:56.817Z\"}', '2026-01-17 22:55:56'),
+(876, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 22:55:57'),
+(877, 'session_1768686454232_9ovmykiov', 'session_end', '{\"duration_seconds\":5484,\"timestamp\":\"2026-01-17T23:18:58.810Z\"}', '2026-01-17 23:18:58'),
+(878, 'session_1768686454232_9ovmykiov', 'session_end', '{\"duration_seconds\":5484,\"timestamp\":\"2026-01-17T23:18:58.808Z\"}', '2026-01-17 23:18:58'),
+(879, 'session_1768686454232_9ovmykiov', 'session_end', '{\"duration_seconds\":5484,\"timestamp\":\"2026-01-17T23:18:58.809Z\"}', '2026-01-17 23:18:58'),
+(880, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-17 23:18:59'),
+(881, 'session_1768691938887_u1ir62led', 'session_end', '{\"duration_seconds\":43,\"timestamp\":\"2026-01-17T23:19:42.020Z\"}', '2026-01-17 23:19:42'),
+(882, 'session_1768690556885_v042j4651', 'session_end', '{\"duration_seconds\":1425,\"timestamp\":\"2026-01-17T23:19:42.020Z\"}', '2026-01-17 23:19:42'),
+(883, 'session_1768691982164_gzu462w6i', 'session_end', '{\"duration_seconds\":439,\"timestamp\":\"2026-01-17T23:27:01.442Z\"}', '2026-01-17 23:27:01'),
+(884, 'session_1768691982144_64itu249s', 'session_end', '{\"duration_seconds\":439,\"timestamp\":\"2026-01-17T23:27:01.441Z\"}', '2026-01-17 23:27:01'),
+(885, 'session_1768692421713_nltvmzx80', 'session_end', '{\"duration_seconds\":32,\"timestamp\":\"2026-01-17T23:27:33.892Z\"}', '2026-01-17 23:27:33'),
+(886, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":42,\"name\":\"JBL Speaker\",\"brand\":\"JBL\",\"model\":\"JBL\",\"category\":\"accessories\",\"price\":0,\"condition\":\"new\"}', '2026-01-17 23:27:37'),
+(887, 'session_1768692453958_d0d2f432d', 'session_end', '{\"duration_seconds\":357,\"timestamp\":\"2026-01-17T23:33:31.664Z\"}', '2026-01-17 23:33:31'),
+(888, 'session_1768692421767_ac325lar6', 'session_end', '{\"duration_seconds\":389,\"timestamp\":\"2026-01-17T23:33:31.673Z\"}', '2026-01-17 23:33:31'),
+(889, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":31,\"name\":\"iPhone 14 Pro Max\",\"brand\":\"Apple\",\"model\":\"Iphone 14 pro max\",\"category\":\"\",\"price\":0,\"condition\":\"new\"}', '2026-01-18 00:02:22'),
+(890, 'session_1768692811950_u3qexk8zp', 'session_end', '{\"duration_seconds\":1794,\"timestamp\":\"2026-01-18T00:03:26.031Z\"}', '2026-01-18 00:03:26'),
+(891, 'session_1768694606231_ocy554izm', 'session_end', '{\"duration_seconds\":107,\"timestamp\":\"2026-01-18T00:05:13.693Z\"}', '2026-01-18 00:05:13'),
+(892, 'session_1768692811996_5lpr0l3o3', 'session_end', '{\"duration_seconds\":1903,\"timestamp\":\"2026-01-18T00:05:15.497Z\"}', '2026-01-18 00:05:15'),
+(893, 'session_1768692811996_5lpr0l3o3', 'session_end', '{\"duration_seconds\":1903,\"timestamp\":\"2026-01-18T00:05:15.508Z\"}', '2026-01-18 00:05:15'),
+(894, 'b03c094c5094efd1f4773a897e8c6b3b', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 00:07:36'),
+(895, 'b03c094c5094efd1f4773a897e8c6b3b', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":754.99}', '2026-01-18 00:07:41'),
+(896, 'session_1768694718532_5260m1n13', 'session_end', '{\"duration_seconds\":143,\"timestamp\":\"2026-01-18T00:07:42.494Z\"}', '2026-01-18 00:07:42'),
+(897, 'b03c094c5094efd1f4773a897e8c6b3b', 'pre_order', '{\"id\":36,\"title\":\"MSI 27\\\" Monitor\",\"price\":0,\"brand\":\"MSI\"}', '2026-01-18 00:09:57'),
+(898, 'b03c094c5094efd1f4773a897e8c6b3b', 'checkout_start', '{\"items\":[{\"id\":36,\"title\":\"MSI 27\\\" Monitor\",\"quantity\":1,\"price\":0}],\"payment\":\"square\",\"total\":4.99}', '2026-01-18 00:10:00'),
+(899, 'b03c094c5094efd1f4773a897e8c6b3b', 'view_product', '{\"productId\":36,\"name\":\"MSI 27\\\" Monitor\",\"brand\":\"MSI\",\"model\":\"Monitor\",\"category\":\"gaming\",\"price\":0,\"condition\":\"new\"}', '2026-01-18 00:10:04'),
+(900, '56dd6a61ff8f927649ad504f539dd762', 'view_product', '{\"productId\":10,\"name\":\"ASUS TUF F15\",\"brand\":\"ASUS\",\"model\":\"TUF Gaming F15\",\"category\":\"gaming\",\"price\":0,\"condition\":\"new\"}', '2026-01-18 00:11:32'),
+(901, 'session_1768694718532_5260m1n13', 'session_end', '{\"duration_seconds\":452,\"timestamp\":\"2026-01-18T00:12:50.948Z\"}', '2026-01-18 00:12:51'),
+(902, '56dd6a61ff8f927649ad504f539dd762', 'view_product', '{\"productId\":20,\"name\":\"Nintendo Switch\",\"brand\":\"Nintendo\",\"model\":\"1\",\"category\":\"gaming\",\"price\":0,\"condition\":\"new\"}', '2026-01-18 07:14:52'),
+(903, '56dd6a61ff8f927649ad504f539dd762', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-18 07:16:16'),
+(904, '56dd6a61ff8f927649ad504f539dd762', 'view_product', '{\"productId\":38,\"name\":\"Nvidea RTX 2070 \",\"brand\":\"Nvidea\",\"model\":\"2070\",\"category\":\"gaming\",\"price\":0,\"condition\":\"new\"}', '2026-01-18 08:11:09'),
+(905, '56dd6a61ff8f927649ad504f539dd762', 'view_product', '{\"productId\":38,\"name\":\"Nvidea RTX 2070 \",\"brand\":\"Nvidea\",\"model\":\"2070\",\"category\":\"gaming\",\"price\":0,\"condition\":\"new\"}', '2026-01-18 08:11:15'),
+(906, '56dd6a61ff8f927649ad504f539dd762', 'view_product', '{\"productId\":38,\"name\":\"Nvidea RTX 2070 \",\"brand\":\"Nvidea\",\"model\":\"2070\",\"category\":\"gaming\",\"price\":0,\"condition\":\"new\"}', '2026-01-18 08:11:24'),
+(907, 'session_1768734430483_06aykix79', 'session_end', '{\"duration_seconds\":149,\"timestamp\":\"2026-01-18T11:09:40.031Z\"}', '2026-01-18 11:09:40'),
+(908, 'session_1768734615956_liv2vvw7n', 'session_end', '{\"duration_seconds\":152,\"timestamp\":\"2026-01-18T11:12:48.505Z\"}', '2026-01-18 11:12:48'),
+(909, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 11:29:25'),
+(910, 'session_1768734768746_dppb0fzog', 'session_end', '{\"duration_seconds\":1256,\"timestamp\":\"2026-01-18T11:33:44.836Z\"}', '2026-01-18 11:33:44'),
+(911, 'session_1768734421322_ny856i9o4', 'session_end', '{\"duration_seconds\":5114,\"timestamp\":\"2026-01-18T12:32:15.395Z\"}', '2026-01-18 12:32:15'),
+(912, 'b3a99d92641847200529cdeed6250014', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":754.99}', '2026-01-18 12:32:21'),
+(913, 'session_1768736025077_fkza89l7q', 'session_end', '{\"duration_seconds\":3516,\"timestamp\":\"2026-01-18T12:32:22.050Z\"}', '2026-01-18 12:32:22'),
+(914, 'session_1768739560249_8cmb73c6y', 'session_end', '{\"duration_seconds\":794,\"timestamp\":\"2026-01-18T12:45:55.033Z\"}', '2026-01-18 12:45:55'),
+(915, 'b3a99d92641847200529cdeed6250014', 'view_product', '{\"productId\":5,\"name\":\"iPhone 16 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 16 Pro Max\",\"category\":\"smartphone\",\"price\":4000000,\"condition\":\"new\"}', '2026-01-18 12:46:13'),
+(916, 'b3a99d92641847200529cdeed6250014', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":754.99}', '2026-01-18 12:46:20'),
+(917, 'session_1768740355253_ccl1lnn6g', 'session_end', '{\"duration_seconds\":25,\"timestamp\":\"2026-01-18T12:46:20.809Z\"}', '2026-01-18 12:46:20'),
+(918, 'session_1768740417467_1kw4t9y26', 'session_end', '{\"duration_seconds\":238,\"timestamp\":\"2026-01-18T12:50:56.070Z\"}', '2026-01-18 12:50:56'),
+(919, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 12:51:08'),
+(920, 'b3a99d92641847200529cdeed6250014', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":754.99}', '2026-01-18 12:51:14'),
+(921, 'session_1768740656297_k8ee4bvz2', 'session_end', '{\"duration_seconds\":18,\"timestamp\":\"2026-01-18T12:51:14.601Z\"}', '2026-01-18 12:51:14'),
+(922, 'session_1768740679331_v9n6s6hin', 'session_end', '{\"duration_seconds\":1037,\"timestamp\":\"2026-01-18T13:08:36.567Z\"}', '2026-01-18 13:08:36'),
+(923, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 13:08:51'),
+(924, 'b3a99d92641847200529cdeed6250014', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":754.99}', '2026-01-18 13:08:56'),
+(925, 'session_1768741716790_5tmpw7wn0', 'session_end', '{\"duration_seconds\":20,\"timestamp\":\"2026-01-18T13:08:57.030Z\"}', '2026-01-18 13:08:57'),
+(926, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 13:09:26'),
+(927, 'b3a99d92641847200529cdeed6250014', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":754.99}', '2026-01-18 13:09:43'),
+(928, 'session_1768741751268_bq58wsh27', 'session_end', '{\"duration_seconds\":32,\"timestamp\":\"2026-01-18T13:09:43.903Z\"}', '2026-01-18 13:09:43'),
+(929, 'session_1768743265894_pf7qnddnc', 'session_end', '{\"duration_seconds\":1,\"timestamp\":\"2026-01-18T13:34:27.473Z\"}', '2026-01-18 13:34:27'),
+(930, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 13:34:38'),
+(931, 'b3a99d92641847200529cdeed6250014', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":754.99}', '2026-01-18 13:34:46'),
+(932, 'session_1768743267704_t7w0e0rbl', 'session_end', '{\"duration_seconds\":19,\"timestamp\":\"2026-01-18T13:34:47.045Z\"}', '2026-01-18 13:34:47'),
+(933, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 13:53:43'),
+(934, 'session_1768744191569_cdzir9qzo', 'session_end', '{\"duration_seconds\":1345,\"timestamp\":\"2026-01-18T14:12:17.329Z\"}', '2026-01-18 14:12:17'),
+(935, 'session_1768745537555_11lllfldq', 'session_end', '{\"duration_seconds\":7,\"timestamp\":\"2026-01-18T14:12:25.330Z\"}', '2026-01-18 14:12:25'),
+(936, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 14:12:46'),
+(937, 'session_1768745545390_vrzaeowly', 'session_end', '{\"duration_seconds\":774,\"timestamp\":\"2026-01-18T14:25:20.102Z\"}', '2026-01-18 14:25:20'),
+(938, 'session_1768746320329_o0pt9fj7v', 'session_end', '{\"duration_seconds\":5,\"timestamp\":\"2026-01-18T14:25:26.125Z\"}', '2026-01-18 14:25:26'),
+(939, 'session_1768746326184_pihqv8wsp', 'session_end', '{\"duration_seconds\":8,\"timestamp\":\"2026-01-18T14:25:35.112Z\"}', '2026-01-18 14:25:35'),
+(940, '9b4fe3800e0241e7bcfe5b97b7cd8085', 'view_product', '{\"productId\":1,\"name\":\"MacBook Pro M4\",\"brand\":\"Apple\",\"model\":\"MacBook Pro M4\",\"category\":\"laptop\",\"price\":0,\"condition\":\"new\"}', '2026-01-18 14:26:00'),
+(941, '9b4fe3800e0241e7bcfe5b97b7cd8085', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 14:26:16'),
+(942, 'session_1768746360837_bq36umaoh', 'session_end', '{\"duration_seconds\":415,\"timestamp\":\"2026-01-18T14:32:56.727Z\"}', '2026-01-18 14:32:56'),
+(943, 'session_1768746777223_l9mn6638x', 'session_end', '{\"duration_seconds\":533,\"timestamp\":\"2026-01-18T14:41:50.341Z\"}', '2026-01-18 14:41:50'),
+(944, 'session_1768746335644_rghst7e3j', 'session_end', '{\"duration_seconds\":993,\"timestamp\":\"2026-01-18T14:42:09.379Z\"}', '2026-01-18 14:42:09'),
+(945, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 14:42:22'),
+(946, 'session_1768747329601_hmjmwrs2y', 'session_end', '{\"duration_seconds\":35,\"timestamp\":\"2026-01-18T14:42:44.637Z\"}', '2026-01-18 14:42:44'),
+(947, 'session_1768747364811_22e19dig0', 'session_end', '{\"duration_seconds\":267,\"timestamp\":\"2026-01-18T14:47:12.690Z\"}', '2026-01-18 14:47:12'),
+(948, 'session_1768747310778_mwjyokxeu', 'session_end', '{\"duration_seconds\":321,\"timestamp\":\"2026-01-18T14:47:12.754Z\"}', '2026-01-18 14:47:12'),
+(949, 'session_1768747632969_nbnrcrlzo', 'session_end', '{\"duration_seconds\":203,\"timestamp\":\"2026-01-18T14:50:36.607Z\"}', '2026-01-18 14:50:36'),
+(950, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 14:50:52'),
+(951, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 14:52:39'),
+(952, 'b3a99d92641847200529cdeed6250014', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":759.99}', '2026-01-18 14:52:52'),
+(953, 'session_1768747836757_wp4asg7pi', 'session_end', '{\"duration_seconds\":136,\"timestamp\":\"2026-01-18T14:52:53.315Z\"}', '2026-01-18 14:52:53'),
+(954, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 14:53:33'),
+(955, 'b3a99d92641847200529cdeed6250014', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":754.99}', '2026-01-18 14:53:54'),
+(956, 'session_1768747999930_vusx49qtb', 'session_end', '{\"duration_seconds\":35,\"timestamp\":\"2026-01-18T14:53:55.456Z\"}', '2026-01-18 14:53:55'),
+(957, 'session_1768748455424_mqqk6z33m', 'session_end', '{\"duration_seconds\":1,\"timestamp\":\"2026-01-18T15:00:56.823Z\"}', '2026-01-18 15:00:56'),
+(958, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 15:01:36'),
+(959, 'b3a99d92641847200529cdeed6250014', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":756}', '2026-01-18 15:02:01'),
+(960, 'session_1768748457040_atpkj8n68', 'session_end', '{\"duration_seconds\":65,\"timestamp\":\"2026-01-18T15:02:02.931Z\"}', '2026-01-18 15:02:02'),
+(961, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 15:02:26'),
+(962, 'b3a99d92641847200529cdeed6250014', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":754.99}', '2026-01-18 15:02:39'),
+(963, 'session_1768748529609_q0o0rtq3s', 'session_end', '{\"duration_seconds\":30,\"timestamp\":\"2026-01-18T15:02:40.567Z\"}', '2026-01-18 15:02:40'),
+(964, 'b3a99d92641847200529cdeed6250014', 'add_to_cart', '{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"price\":750,\"brand\":\"Apple\"}', '2026-01-18 15:06:26'),
+(965, 'b3a99d92641847200529cdeed6250014', 'checkout_start', '{\"items\":[{\"id\":5,\"title\":\"iPhone 16 Pro Max\",\"quantity\":1,\"price\":750}],\"payment\":\"square\",\"total\":759.99}', '2026-01-18 15:07:38'),
+(966, 'session_1768748637300_syo001sx4', 'session_end', '{\"duration_seconds\":222,\"timestamp\":\"2026-01-18T15:07:39.959Z\"}', '2026-01-18 15:07:40'),
+(967, 'session_1768747633493_32342iah0', 'session_end', '{\"duration_seconds\":6980,\"timestamp\":\"2026-01-18T16:43:33.829Z\"}', '2026-01-18 16:43:33'),
+(968, 'session_1768750150327_828nq5uqp', 'session_end', '{\"duration_seconds\":4713,\"timestamp\":\"2026-01-18T16:47:43.474Z\"}', '2026-01-18 16:47:43'),
+(969, 'session_1768750117744_fi8hh8rlk', 'session_end', '{\"duration_seconds\":4774,\"timestamp\":\"2026-01-18T16:48:12.632Z\"}', '2026-01-18 16:48:12'),
+(970, 'session_1768754863632_awzkqcgiy', 'session_end', '{\"duration_seconds\":31,\"timestamp\":\"2026-01-18T16:48:15.493Z\"}', '2026-01-18 16:48:15'),
+(971, 'session_1768754924588_lek15ilhq', 'session_end', '{\"duration_seconds\":6,\"timestamp\":\"2026-01-18T16:48:50.997Z\"}', '2026-01-18 16:48:51'),
+(972, 'session_1768754890277_zayaku7jf', 'session_end', '{\"duration_seconds\":62,\"timestamp\":\"2026-01-18T16:49:12.437Z\"}', '2026-01-18 16:49:12'),
+(973, 'session_1768754931045_sa05sw0v6', 'session_end', '{\"duration_seconds\":23,\"timestamp\":\"2026-01-18T16:49:15.007Z\"}', '2026-01-18 16:49:15'),
+(974, 'session_1768754955052_hpeai506t', 'session_end', '{\"duration_seconds\":2,\"timestamp\":\"2026-01-18T16:49:17.620Z\"}', '2026-01-18 16:49:17'),
+(975, 'session_1768754957667_4bfjqdnl6', 'session_end', '{\"duration_seconds\":1,\"timestamp\":\"2026-01-18T16:49:18.699Z\"}', '2026-01-18 16:49:18'),
+(976, 'session_1768755089950_zuekxzvbe', 'session_end', '{\"duration_seconds\":3,\"timestamp\":\"2026-01-18T16:51:33.059Z\"}', '2026-01-18 16:51:33'),
+(977, 'session_1768755093106_wwr4dcfby', 'session_end', '{\"duration_seconds\":741,\"timestamp\":\"2026-01-18T17:03:54.285Z\"}', '2026-01-18 17:03:54'),
+(978, 'session_1768754952538_rec8ojwgi', 'session_end', '{\"duration_seconds\":1246,\"timestamp\":\"2026-01-18T17:09:59.465Z\"}', '2026-01-18 17:09:59'),
+(979, 'session_1768755834466_knfxwqikd', 'session_end', '{\"duration_seconds\":1004,\"timestamp\":\"2026-01-18T17:20:39.015Z\"}', '2026-01-18 17:20:39'),
+(980, 'session_1768756199721_gysbamvr4', 'session_end', '{\"duration_seconds\":639,\"timestamp\":\"2026-01-18T17:20:39.017Z\"}', '2026-01-18 17:20:39'),
+(981, 'session_1768756839279_tu8mk4y3z', 'session_end', '{\"duration_seconds\":137,\"timestamp\":\"2026-01-18T17:22:56.686Z\"}', '2026-01-18 17:22:56'),
+(982, 'session_1768756976827_w9bcd318l', 'session_end', '{\"duration_seconds\":192,\"timestamp\":\"2026-01-18T17:26:09.256Z\"}', '2026-01-18 17:26:09'),
+(983, 'session_1768756839207_l2lt5kcom', 'session_end', '{\"duration_seconds\":330,\"timestamp\":\"2026-01-18T17:26:09.254Z\"}', '2026-01-18 17:26:09'),
+(984, 'session_1768757169481_ih97vlun3', 'session_end', '{\"duration_seconds\":37,\"timestamp\":\"2026-01-18T17:26:47.142Z\"}', '2026-01-18 17:26:47'),
+(985, 'session_1768757207196_yc9bs3s81', 'session_end', '{\"duration_seconds\":466,\"timestamp\":\"2026-01-18T17:34:33.774Z\"}', '2026-01-18 17:34:33'),
+(986, 'session_1768757673985_f1qok94a1', 'session_end', '{\"duration_seconds\":26,\"timestamp\":\"2026-01-18T17:35:00.407Z\"}', '2026-01-18 17:35:00'),
+(987, 'session_1768758319725_pgow1uten', 'session_end', '{\"duration_seconds\":471,\"timestamp\":\"2026-01-18T17:53:11.499Z\"}', '2026-01-18 17:53:11'),
+(988, 'session_1768754614618_dqckqn5a9', 'session_end', '{\"duration_seconds\":6848,\"timestamp\":\"2026-01-18T18:37:42.952Z\"}', '2026-01-18 18:37:43'),
+(989, 'session_1768761463571_aq9b3o8kq', 'session_end', '{\"duration_seconds\":179,\"timestamp\":\"2026-01-18T18:40:42.925Z\"}', '2026-01-18 18:40:42');
 
 -- --------------------------------------------------------
 
@@ -4462,7 +4649,304 @@ INSERT INTO `analytics_page_views` (`id`, `session_id`, `path`, `title`, `create
 (3494, 'session_1768572342065_uyzc3jtzl', '/trade-in', 'Find Us - Store Locations | Xtrapush Gadgets', '2026-01-16 14:06:13'),
 (3495, 'session_1768572342065_uyzc3jtzl', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 14:06:13'),
 (3496, 'session_1768572342065_uyzc3jtzl', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 14:06:15'),
-(3497, 'session_1768573380914_611o8ldmo', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 14:23:01');
+(3497, 'session_1768573380914_611o8ldmo', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 14:23:01'),
+(3498, 'session_1768575280757_uxzrf7tmt', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 14:54:41'),
+(3499, 'session_1768578057619_03nbmtia2', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 15:40:59'),
+(3500, 'session_1768578375479_tb6y4caov', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 15:46:16'),
+(3501, 'session_1768578750515_zv2aq47uq', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 15:52:30'),
+(3502, 'session_1768578750515_zv2aq47uq', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 15:52:40'),
+(3503, 'session_1768579013802_e8b3y5p7j', '/gadgets/tablets/microsoft-surface-27', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 15:56:55'),
+(3504, 'session_1768586316364_sb6wx0vzo', '/help', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 17:58:37'),
+(3505, 'session_1768587925039_w54mam5re', '/terms-and-conditions', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 18:25:26'),
+(3506, 'session_1768598508448_4sat6lm1c', '/gadgets/gaming/xbox-series-x-16', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 21:21:50'),
+(3507, 'session_1768602812080_197is3rxi', '/gadgets/accessories/usb-c-cable-21', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 22:33:34'),
+(3508, 'session_1768605146181_lwhxto0cp', '/gadgets/gaming/playstation-5-15', 'Xtrapush Gadgets : A little push to get you there', '2026-01-16 23:12:27'),
+(3509, 'session_1768619904925_vwtprxjc6', '/about', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 03:18:26'),
+(3510, 'session_1768608000028_yhd4ldlif', '/gadgets/gaming/xbox-series-x-16', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 03:38:12'),
+(3511, 'session_1768623245028_sainv5vmz', '/gadgets/10', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 04:14:11'),
+(3512, 'session_1768623249028_si80ksisj', '/gadgets/14', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 04:14:18'),
+(3513, 'session_1768623788011_fd45x87kz', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 04:23:11'),
+(3514, 'session_1768626245041_fv1whh6s7', '/gadgets/9', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 05:04:30'),
+(3515, 'session_1768626248049_oydm60wrr', '/gadgets/16', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 05:04:39'),
+(3516, 'session_1768629248028_sainv5vmz', '/gadgets/13', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 05:54:16'),
+(3517, 'session_1768629245030_sainv5vmz', '/gadgets/15', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 05:54:22'),
+(3518, 'session_1768631495028_sainv5vmz', '/gadgets/18', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 06:31:45'),
+(3519, 'session_1768633745049_oydm60wrr', '/gadgets/17', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 07:09:14'),
+(3520, 'session_1768635815059_7oqeixujd', '/wishlist', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 07:43:36'),
+(3521, 'session_1768635995028_yhd4ldlif', '/gadgets/19', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 07:46:58'),
+(3522, 'session_1768656714022_4pk0nfp4o', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:31:54'),
+(3523, 'session_1768656786875_8rrwny4ws', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:33:07'),
+(3524, 'session_1768656786875_8rrwny4ws', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:33:08'),
+(3525, 'session_1768656786875_8rrwny4ws', '/trade-in', 'Trade or Swap Your Device | Xtrapush Gadgets - Best Deal Guaranteed', '2026-01-17 13:33:10'),
+(3526, 'session_1768656786875_8rrwny4ws', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:33:12'),
+(3527, 'session_1768656786875_8rrwny4ws', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:33:19'),
+(3528, 'session_1768656786875_8rrwny4ws', '/about', 'About Us - Xtrapush Gadgets | Technology Retailer UK & Malawi', '2026-01-17 13:33:22'),
+(3529, 'session_1768656786875_8rrwny4ws', '/trade-in', 'Trade or Swap Your Device | Xtrapush Gadgets - Best Deal Guaranteed', '2026-01-17 13:33:39'),
+(3530, 'session_1768656786875_8rrwny4ws', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:33:39'),
+(3531, 'session_1768656786875_8rrwny4ws', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:33:40'),
+(3532, 'session_1768656786875_8rrwny4ws', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:34:45'),
+(3533, 'session_1768656786875_8rrwny4ws', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:34:46'),
+(3534, 'session_1768656891385_nf8mprzea', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:34:51'),
+(3535, 'session_1768656891385_nf8mprzea', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:34:57'),
+(3536, 'session_1768656891385_nf8mprzea', '/gadgets/17', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:34:59'),
+(3537, 'session_1768656891385_nf8mprzea', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:35:18'),
+(3538, 'session_1768657055272_tbc9j8f9s', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 13:37:35'),
+(3539, 'session_1768666107677_bwwq4yxsa', '/gadgets/smart-watches/apple-watch-ultra-30', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 16:08:29'),
+(3540, 'session_1768669688550_pnrkq51yv', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:08:08'),
+(3541, 'session_1768669688550_pnrkq51yv', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:08:15'),
+(3542, 'session_1768669688550_pnrkq51yv', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:08:18'),
+(3543, 'session_1768669688550_pnrkq51yv', '/trade-in', 'Trade or Swap Your Device | Xtrapush Gadgets - Best Deal Guaranteed', '2026-01-17 17:08:20'),
+(3544, 'session_1768669688550_pnrkq51yv', '/find-us', 'Find Us - Store Locations | Xtrapush Gadgets', '2026-01-17 17:08:22'),
+(3545, 'session_1768669688550_pnrkq51yv', '/contact', 'Contact Us - Xtrapush Gadgets Customer Support | UK & Malawi', '2026-01-17 17:08:23'),
+(3546, 'session_1768669688550_pnrkq51yv', '/about', 'About Us - Xtrapush Gadgets | Technology Retailer UK & Malawi', '2026-01-17 17:08:25'),
+(3547, 'session_1768669688550_pnrkq51yv', '/dashboard', 'About Us - Xtrapush Gadgets | Technology Retailer UK & Malawi', '2026-01-17 17:08:28'),
+(3548, 'session_1768669725894_0mwi5d52f', '/dashboard/orders/4', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:08:46'),
+(3549, 'session_1768669725894_0mwi5d52f', '/dashboard/applications', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:08:49'),
+(3550, 'session_1768669725894_0mwi5d52f', '/dashboard/installments', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:08:50'),
+(3551, 'session_1768669725894_0mwi5d52f', '/dashboard/orders', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:08:52'),
+(3552, 'session_1768669725894_0mwi5d52f', '/dashboard/installments', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:10:33'),
+(3553, 'session_1768669725894_0mwi5d52f', '/dashboard/applications', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:10:34'),
+(3554, 'session_1768669725894_0mwi5d52f', '/dashboard/receipts', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:10:35'),
+(3555, 'session_1768669725894_0mwi5d52f', '/dashboard', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:10:36'),
+(3556, 'session_1768669725894_0mwi5d52f', '/signin', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:13:41'),
+(3557, 'session_1768670070460_brtktx3it', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:14:30'),
+(3558, 'session_1768670070460_brtktx3it', '/dashboard', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:14:33'),
+(3559, 'session_1768670070460_brtktx3it', '/signin', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:14:38'),
+(3560, 'session_1768670070460_brtktx3it', '/dashboard', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:14:53'),
+(3561, 'session_1768670070460_brtktx3it', '/dashboard/analytics', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:14:53'),
+(3562, 'session_1768670070460_brtktx3it', '/dashboard/users', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:15:19'),
+(3563, 'session_1768670070460_brtktx3it', '/dashboard/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:15:23'),
+(3564, 'session_1768670070460_brtktx3it', '/dashboard/trade-ins-admin', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:15:25'),
+(3565, 'session_1768670070460_brtktx3it', '/dashboard/applications', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:15:30'),
+(3566, 'session_1768670070460_brtktx3it', '/dashboard/orders', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:15:32'),
+(3567, 'session_1768670070460_brtktx3it', '/dashboard/analytics', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:15:58'),
+(3568, 'session_1768670070460_brtktx3it', '/dashboard/users', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:16:00'),
+(3569, 'session_1768670070460_brtktx3it', '/signin', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:16:03'),
+(3570, 'session_1768670070460_brtktx3it', '/dashboard', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:16:11'),
+(3571, 'session_1768670175028_73y528a9c', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:16:15'),
+(3572, 'session_1768670175028_73y528a9c', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 17:16:18'),
+(3573, 'session_1768675280176_4qmfyiz9o', '/tablets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 18:41:21'),
+(3574, 'session_1768679538188_y7hw6rc0h', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:52:18'),
+(3575, 'session_1768679545857_d16clbvja', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:52:26'),
+(3576, 'session_1768679545857_d16clbvja', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:52:32'),
+(3577, 'session_1768679545857_d16clbvja', '/signin', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:52:52'),
+(3578, 'session_1768679545857_d16clbvja', '/dashboard', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:53:09'),
+(3579, 'session_1768679545857_d16clbvja', '/dashboard/analytics', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:53:09'),
+(3580, 'session_1768679545857_d16clbvja', '/dashboard/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:53:21'),
+(3581, 'session_1768679655520_otm5d0zgz', '/dashboard/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:54:15'),
+(3582, 'session_1768679717062_wbyzjbv2s', '/dashboard/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:55:17'),
+(3583, 'session_1768679717062_wbyzjbv2s', '/dashboard/trade-ins-admin', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:56:06'),
+(3584, 'session_1768679717062_wbyzjbv2s', '/dashboard/applications', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:56:10'),
+(3585, 'session_1768679717062_wbyzjbv2s', '/dashboard/orders', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:56:10'),
+(3586, 'session_1768679717062_wbyzjbv2s', '/dashboard/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 19:58:42'),
+(3587, 'session_1768680063339_75s21xydu', '/dashboard/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 20:01:03'),
+(3588, 'session_1768680153713_a00rnxdjg', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 20:02:33'),
+(3589, 'session_1768680153713_a00rnxdjg', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 20:02:35'),
+(3590, 'session_1768680192707_wyjw7yfxh', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 20:03:12'),
+(3591, 'session_1768680239788_2k5yof8nx', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 20:03:59'),
+(3592, 'session_1768681912835_ay931frl2', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 20:31:53'),
+(3593, 'session_1768682307592_7zffst0qz', '/gadgets/accessories/iphone-case-20', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 20:38:29'),
+(3594, 'session_1768683345028_fv3jyzdfb', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 20:55:45'),
+(3595, 'session_1768683411521_vzuhr233u', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 20:56:51'),
+(3596, 'session_1768683411521_vzuhr233u', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 20:58:07'),
+(3597, 'session_1768683495392_at1mtcxyv', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 20:58:15'),
+(3598, 'session_1768683495392_at1mtcxyv', '/gadgets/1', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:02:23'),
+(3599, 'session_1768683495392_at1mtcxyv', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:02:37'),
+(3600, 'session_1768683495392_at1mtcxyv', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:02:39'),
+(3601, 'session_1768683495392_at1mtcxyv', '/gadgets/5', 'iphon | Search Results - Xtrapush Gadgets', '2026-01-17 21:02:53'),
+(3602, 'session_1768683495392_at1mtcxyv', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:03:33'),
+(3603, 'session_1768686046541_lutqgouf8', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:40:46'),
+(3604, 'session_1768686046541_lutqgouf8', '/gadgets/5', 'ip | Search Results - Xtrapush Gadgets', '2026-01-17 21:45:40'),
+(3605, 'session_1768686454232_9ovmykiov', '/gadgets/5', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:47:34'),
+(3606, 'session_1768686511583_q6rhd02jt', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:48:31'),
+(3607, 'session_1768686511583_q6rhd02jt', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:48:47'),
+(3608, 'session_1768686571174_b05um55k3', '/gadgets/5', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:49:31'),
+(3609, 'session_1768686574004_d46xqw9ly', '/gadgets/5', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:49:34'),
+(3610, 'session_1768686574004_d46xqw9ly', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:50:21'),
+(3611, 'session_1768686574004_d46xqw9ly', '/gadgets/37', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:50:24'),
+(3612, 'session_1768686574004_d46xqw9ly', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:50:46'),
+(3613, 'session_1768686574004_d46xqw9ly', '/gadgets/33', 'ip | Search Results - Xtrapush Gadgets', '2026-01-17 21:51:55'),
+(3614, 'session_1768686574004_d46xqw9ly', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 21:52:03'),
+(3615, 'session_1768689342771_4mdqz8z14', '/contact', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 22:35:44'),
+(3616, 'session_1768686574004_d46xqw9ly', '/gadgets/5', 'iphone 16 | Search Results - Xtrapush Gadgets', '2026-01-17 22:38:30'),
+(3617, 'session_1768689644301_p0w8j3q3h', '/gadgets/5', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 22:40:44'),
+(3618, 'session_1768689700628_j5twxl4ih', '/gadgets/5', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 22:41:40'),
+(3619, 'session_1768689708248_s137c0nrm', '/gadgets/5', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 22:41:48'),
+(3620, 'session_1768689765081_bxq40ab8q', '/gadgets/5', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 22:42:45'),
+(3621, 'session_1768689765081_bxq40ab8q', '/gadgets/5', 'iPhone 16 Pro Max by Apple | Buy Smartphones Online - Xtrapush Gadgets', '2026-01-17 22:44:20'),
+(3622, 'session_1768689765081_bxq40ab8q', '/gadgets/5', 'iPhone 16 Pro Max by Apple | Buy Smartphones Online - Xtrapush Gadgets', '2026-01-17 22:44:43'),
+(3623, 'session_1768689765081_bxq40ab8q', '/gadgets/5', 'iPhone 16 Pro Max by Apple | Buy Smartphones Online - Xtrapush Gadgets', '2026-01-17 22:45:11'),
+(3624, 'session_1768689927270_6k05cwjo4', '/gadgets/5', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 22:45:27'),
+(3625, 'session_1768690556885_v042j4651', '/gadgets/5', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 22:55:57'),
+(3626, 'session_1768690556885_v042j4651', '/dashboard', 'iPhone 16 Pro Max by Apple | Buy Smartphones Online - Xtrapush Gadgets', '2026-01-17 22:56:36'),
+(3627, 'session_1768691872632_yzpksa3w6', '/find-us', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:17:54'),
+(3628, 'session_1768691938887_u1ir62led', '/gadgets/5', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:18:58'),
+(3629, 'session_1768691938887_u1ir62led', '/trade-in', 'Trade or Swap Your Device | Xtrapush Gadgets - Best Deal Guaranteed', '2026-01-17 23:19:19'),
+(3630, 'session_1768691938887_u1ir62led', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:19:20'),
+(3631, 'session_1768691982144_64itu249s', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:19:42'),
+(3632, 'session_1768691982164_gzu462w6i', '/dashboard', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:19:42'),
+(3633, 'session_1768692421713_nltvmzx80', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:27:01'),
+(3634, 'session_1768692421767_ac325lar6', '/dashboard', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:27:01'),
+(3635, 'session_1768692453958_d0d2f432d', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:27:34'),
+(3636, 'session_1768692453958_d0d2f432d', '/gadgets/42', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:27:37'),
+(3637, 'session_1768692453958_d0d2f432d', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:28:04'),
+(3638, 'session_1768692811950_u3qexk8zp', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:33:32'),
+(3639, 'session_1768692811996_5lpr0l3o3', '/dashboard', 'Xtrapush Gadgets : A little push to get you there', '2026-01-17 23:33:32'),
+(3640, 'session_1768692811950_u3qexk8zp', '/gadgets/31', 'All Gadgets - Best Deals | Xtrapush Gadgets', '2026-01-18 00:02:22'),
+(3641, 'session_1768692811950_u3qexk8zp', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:02:41'),
+(3642, 'session_1768694606231_ocy554izm', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:03:26'),
+(3643, 'session_1768694718532_5260m1n13', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:05:18'),
+(3644, 'session_1768694718532_5260m1n13', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:06:37'),
+(3645, 'session_1768694718532_5260m1n13', '/contact', 'Contact Us - Xtrapush Gadgets Customer Support | UK & Malawi', '2026-01-18 00:09:00'),
+(3646, 'session_1768694718532_5260m1n13', '/find-us', 'Find Us - Store Locations | Xtrapush Gadgets', '2026-01-18 00:09:02'),
+(3647, 'session_1768694718532_5260m1n13', '/trade-in', 'Trade or Swap Your Device | Xtrapush Gadgets - Best Deal Guaranteed', '2026-01-18 00:09:06'),
+(3648, 'session_1768694718532_5260m1n13', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:09:40'),
+(3649, 'session_1768694718532_5260m1n13', '/gadgets/36', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:10:04'),
+(3650, 'session_1768694718532_5260m1n13', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:10:06'),
+(3651, 'session_1768694718532_5260m1n13', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:10:13'),
+(3652, 'session_1768694718532_5260m1n13', '/dashboard', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:10:17'),
+(3653, 'session_1768694718532_5260m1n13', '/dashboard/analytics', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:10:17'),
+(3654, 'session_1768694718532_5260m1n13', '/signin', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:10:54'),
+(3655, 'session_1768695073714_ary9cguxy', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:11:14'),
+(3656, 'session_1768695073714_ary9cguxy', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:11:20'),
+(3657, 'session_1768695073714_ary9cguxy', '/gadgets/10', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:11:32'),
+(3658, 'session_1768695132242_h99h7rbqf', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 00:12:12'),
+(3659, 'session_1768706313028_yhd4ldlif', '/apple-app-site-association', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 03:18:39'),
+(3660, 'session_1768709821028_yhd4ldlif', '/.well-known/apple-app-site-association', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 04:17:25'),
+(3661, 'session_1768709821049_fv1whh6s7', '/.well-known/apple-app-site-association', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 04:56:04'),
+(3662, 'session_1768706313028_yhd4ldlif', '/apple-app-site-association', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 04:56:23'),
+(3663, 'session_1768712640289_i1qvln1v4', '/gadgets/smartphones/iphone-16-pro-max-1', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 05:04:02'),
+(3664, 'session_1768719573209_0c4ri1zkh', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 06:59:33'),
+(3665, 'session_1768720468940_fcs8p6kaa', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 07:14:29'),
+(3666, 'session_1768720484995_m391h70bv', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 07:14:45'),
+(3667, 'session_1768720484995_m391h70bv', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 07:14:49'),
+(3668, 'session_1768720484995_m391h70bv', '/gadgets/20', 'All Gadgets - Best Deals | Xtrapush Gadgets', '2026-01-18 07:14:52'),
+(3669, 'session_1768720484995_m391h70bv', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 07:15:18'),
+(3670, 'session_1768720565906_6in1dll3r', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 07:16:06'),
+(3671, 'session_1768720565906_6in1dll3r', '/gadgets/5', 'iPhone 16 | Search Results - Xtrapush Gadgets', '2026-01-18 07:16:16'),
+(3672, 'session_1768722868114_78q90jc6e', '/gadgets/smartphones/oneplus-13-4', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 07:54:29'),
+(3673, 'session_1768723802126_r7fi19aql', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 08:10:02'),
+(3674, 'session_1768723835199_u7dl9owd2', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 08:10:35'),
+(3675, 'session_1768723835199_u7dl9owd2', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 08:10:50'),
+(3676, 'session_1768723835199_u7dl9owd2', '/gadgets/38', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 08:11:09'),
+(3677, 'session_1768723874995_xpueuqbsl', '/gadgets/38', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 08:11:15'),
+(3678, 'session_1768723884182_7d5iklqae', '/gadgets/38', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 08:11:24'),
+(3679, 'session_1768723884182_7d5iklqae', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 08:11:25'),
+(3680, 'session_1768724150748_lbljoe6mt', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 08:15:51'),
+(3681, 'session_1768727079283_v5iqbbodk', '/gadgets/accessories/usb-c-cable-21', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 09:04:41'),
+(3682, 'session_1768730964482_kfzlf8do0', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 10:09:25'),
+(3683, 'session_1768730964482_kfzlf8do0', '/terms-and-conditions', 'Terms & Conditions | Xtrapush Gadgets', '2026-01-18 10:09:29'),
+(3684, 'session_1768730964482_kfzlf8do0', '/installment-policy', 'Terms & Conditions | Xtrapush Gadgets', '2026-01-18 10:09:44'),
+(3685, 'session_1768734421322_ny856i9o4', '/signin', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 11:07:01'),
+(3686, 'session_1768734430483_06aykix79', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 11:07:11'),
+(3687, 'session_1768734615956_liv2vvw7n', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 11:10:16'),
+(3688, 'session_1768734615956_liv2vvw7n', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 11:10:18'),
+(3689, 'session_1768734615956_liv2vvw7n', '/trade-in', 'Trade or Swap Your Device | Xtrapush Gadgets - Best Deal Guaranteed', '2026-01-18 11:10:24'),
+(3690, 'session_1768734615956_liv2vvw7n', '/find-us', 'Find Us - Store Locations | Xtrapush Gadgets', '2026-01-18 11:10:26'),
+(3691, 'session_1768734615956_liv2vvw7n', '/trade-in', 'Trade or Swap Your Device | Xtrapush Gadgets - Best Deal Guaranteed', '2026-01-18 11:10:27'),
+(3692, 'session_1768734615956_liv2vvw7n', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 11:10:27'),
+(3693, 'session_1768734615956_liv2vvw7n', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 11:10:28'),
+(3694, 'session_1768734615956_liv2vvw7n', '/contact', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 11:10:29'),
+(3695, 'session_1768734615956_liv2vvw7n', '/trade-in', 'Trade or Swap Your Device | Xtrapush Gadgets - Best Deal Guaranteed', '2026-01-18 11:10:32'),
+(3696, 'session_1768734615956_liv2vvw7n', '/installment-policy', 'Installment Payment Plans | Xtrapush Gadgets', '2026-01-18 11:10:35'),
+(3697, 'session_1768734768746_dppb0fzog', '/installment-policy', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 11:12:48'),
+(3698, 'session_1768734768746_dppb0fzog', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 11:13:47'),
+(3699, 'session_1768734768746_dppb0fzog', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 11:14:04'),
+(3700, 'session_1768736025077_fkza89l7q', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 11:33:45'),
+(3701, 'session_1768739560249_8cmb73c6y', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 12:32:40'),
+(3702, 'session_1768740355253_ccl1lnn6g', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 12:45:55'),
+(3703, 'session_1768740355253_ccl1lnn6g', '/gadgets/5', 'iphone 16 | Search Results - Xtrapush Gadgets', '2026-01-18 12:46:13'),
+(3704, 'session_1768740417467_1kw4t9y26', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 12:46:57'),
+(3705, 'session_1768740656297_k8ee4bvz2', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 12:50:56'),
+(3706, 'session_1768740656297_k8ee4bvz2', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 12:50:56'),
+(3707, 'session_1768740679331_v9n6s6hin', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 12:51:19'),
+(3708, 'session_1768741716790_5tmpw7wn0', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 13:08:36'),
+(3709, 'session_1768741751268_bq58wsh27', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 13:09:11'),
+(3710, 'session_1768743265894_pf7qnddnc', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 13:34:26'),
+(3711, 'session_1768743267704_t7w0e0rbl', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 13:34:27'),
+(3712, 'session_1768744191569_cdzir9qzo', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 13:49:51'),
+(3713, 'session_1768744191569_cdzir9qzo', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 13:49:53'),
+(3714, 'session_1768745537555_11lllfldq', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:12:17'),
+(3715, 'session_1768745545390_vrzaeowly', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:12:25'),
+(3716, 'session_1768746320329_o0pt9fj7v', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:25:20'),
+(3717, 'session_1768746326184_pihqv8wsp', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:25:26'),
+(3718, 'session_1768746335644_rghst7e3j', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:25:35'),
+(3719, 'session_1768746360338_ie874cn4k', '/gadgets/1', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:26:00'),
+(3720, 'session_1768746360837_bq36umaoh', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:26:00'),
+(3721, 'session_1768746777223_l9mn6638x', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:32:57'),
+(3722, 'session_1768747310778_mwjyokxeu', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:41:50'),
+(3723, 'session_1768747329601_hmjmwrs2y', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:42:09'),
+(3724, 'session_1768747364811_22e19dig0', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:42:44'),
+(3725, 'session_1768747632969_nbnrcrlzo', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:47:13'),
+(3726, 'session_1768747633493_32342iah0', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:47:13'),
+(3727, 'session_1768747836757_wp4asg7pi', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:50:36'),
+(3728, 'session_1768747999930_vusx49qtb', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 14:53:20'),
+(3729, 'session_1768748455424_mqqk6z33m', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:00:55'),
+(3730, 'session_1768748457040_atpkj8n68', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:00:57'),
+(3731, 'session_1768748529609_q0o0rtq3s', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:02:09'),
+(3732, 'session_1768748637300_syo001sx4', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:03:57'),
+(3733, 'session_1768748637300_syo001sx4', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:04:01'),
+(3734, 'session_1768749437485_bb018x2re', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:17:17'),
+(3735, 'session_1768694400028_si80ksisj', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:20:31'),
+(3736, 'session_1768750117744_fi8hh8rlk', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:28:37'),
+(3737, 'session_1768750117744_fi8hh8rlk', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:28:39'),
+(3738, 'session_1768750150327_828nq5uqp', '/?id=e24ba485-e017-41d3-a9f1-50b65031cd96&vscodeBrowserReqId=1768750150213', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:29:10'),
+(3739, 'session_1768750150327_828nq5uqp', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:29:23'),
+(3740, 'session_1768750150327_828nq5uqp', '/terms-and-conditions', 'Terms & Conditions | Xtrapush Gadgets', '2026-01-18 15:29:35'),
+(3741, 'session_1768751288030_sainv5vmz', '/gadgets/23', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 15:48:28'),
+(3742, 'session_1768753017170_6fjdbf0l8', '/installment-policy', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:16:58'),
+(3743, 'session_1768754614618_dqckqn5a9', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:43:35'),
+(3744, 'session_1768750150327_828nq5uqp', '/installment-policy', 'Installment Payment Plans | Xtrapush Gadgets', '2026-01-18 16:45:35'),
+(3745, 'session_1768750150327_828nq5uqp', '/terms-and-conditions', 'Terms & Conditions | Xtrapush Gadgets', '2026-01-18 16:45:41'),
+(3746, 'session_1768750150327_828nq5uqp', '/help', 'Help & FAQs - Xtrapush Gadgets Customer Support', '2026-01-18 16:46:58'),
+(3747, 'session_1768750150327_828nq5uqp', '/contact', 'Contact Us - Xtrapush Gadgets Customer Support | UK & Malawi', '2026-01-18 16:47:07'),
+(3748, 'session_1768750150327_828nq5uqp', '/trade-in', 'Trade or Swap Your Device | Xtrapush Gadgets - Best Deal Guaranteed', '2026-01-18 16:47:12'),
+(3749, 'session_1768750150327_828nq5uqp', '/find-us', 'Find Us - Store Locations | Xtrapush Gadgets', '2026-01-18 16:47:18'),
+(3750, 'session_1768750150327_828nq5uqp', '/contact', 'Contact Us - Xtrapush Gadgets Customer Support | UK & Malawi', '2026-01-18 16:47:20'),
+(3751, 'session_1768754863632_awzkqcgiy', '/?id=e24ba485-e017-41d3-a9f1-50b65031cd96&vscodeBrowserReqId=1768754863467', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:47:43'),
+(3752, 'session_1768754863632_awzkqcgiy', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:48:00'),
+(3753, 'session_1768754890277_zayaku7jf', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:48:10'),
+(3754, 'session_1768754895654_9dxistbfl', '/?id=e24ba485-e017-41d3-a9f1-50b65031cd96&vscodeBrowserReqId=1768754895490', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:48:15'),
+(3755, 'session_1768754895654_9dxistbfl', '/terms-and-conditions', 'Terms & Conditions | Xtrapush Gadgets', '2026-01-18 16:48:18'),
+(3756, 'session_1768754924588_lek15ilhq', '/terms?id=e24ba485-e017-41d3-a9f1-50b65031cd96&vscodeBrowserReqId=1768754924552', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:48:44'),
+(3757, 'session_1768754931045_sa05sw0v6', '/terms?id=e24ba485-e017-41d3-a9f1-50b65031cd96&vscodeBrowserReqId=1768754930995', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:48:51'),
+(3758, 'session_1768754952538_rec8ojwgi', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:49:12'),
+(3759, 'session_1768754955052_hpeai506t', '/terms?id=e24ba485-e017-41d3-a9f1-50b65031cd96&vscodeBrowserReqId=1768754955004', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:49:15'),
+(3760, 'session_1768754957667_4bfjqdnl6', '/t?id=e24ba485-e017-41d3-a9f1-50b65031cd96&vscodeBrowserReqId=1768754957618', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:49:17'),
+(3761, 'session_1768754958742_35a7p3g3b', '/?id=e24ba485-e017-41d3-a9f1-50b65031cd96&vscodeBrowserReqId=1768754958696', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:49:18'),
+(3762, 'session_1768754958742_35a7p3g3b', '/terms-and-conditions', 'Terms & Conditions | Xtrapush Gadgets', '2026-01-18 16:49:27'),
+(3763, 'session_1768754958742_35a7p3g3b', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:49:43'),
+(3764, 'session_1768755089950_zuekxzvbe', '/terms?id=e24ba485-e017-41d3-a9f1-50b65031cd96&vscodeBrowserReqId=1768755089811', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:51:30'),
+(3765, 'session_1768755093106_wwr4dcfby', '/?id=e24ba485-e017-41d3-a9f1-50b65031cd96&vscodeBrowserReqId=1768755093056', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:51:33'),
+(3766, 'session_1768755093106_wwr4dcfby', '/terms-and-conditions', 'Terms & Conditions | Xtrapush Gadgets', '2026-01-18 16:51:36'),
+(3767, 'session_1768754952538_rec8ojwgi', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:54:06'),
+(3768, 'session_1768755093106_wwr4dcfby', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 16:56:31'),
+(3769, 'session_1768755834466_knfxwqikd', '/?id=e24ba485-e017-41d3-a9f1-50b65031cd96&vscodeBrowserReqId=1768755834268', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:03:54'),
+(3770, 'session_1768755834466_knfxwqikd', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:03:57'),
+(3771, 'session_1768755834466_knfxwqikd', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:08:14'),
+(3772, 'session_1768756199721_gysbamvr4', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:09:59'),
+(3773, 'session_1768756839207_l2lt5kcom', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:20:39'),
+(3774, 'session_1768756839279_tu8mk4y3z', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:20:39'),
+(3775, 'session_1768756976827_w9bcd318l', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:22:56'),
+(3776, 'session_1768757169426_23jevg5hd', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:26:09'),
+(3777, 'session_1768757169481_ih97vlun3', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:26:09'),
+(3778, 'session_1768757207196_yc9bs3s81', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:26:47'),
+(3779, 'session_1768757673985_f1qok94a1', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:34:34'),
+(3780, 'session_1768757700557_907jrv1vb', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:35:00'),
+(3781, 'session_1768758319725_pgow1uten', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:45:19'),
+(3782, 'session_1768758319725_pgow1uten', '/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:47:18'),
+(3783, 'session_1768758319725_pgow1uten', '/dashboard', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:48:44'),
+(3784, 'session_1768758319725_pgow1uten', '/signin', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:48:47'),
+(3785, 'session_1768758319725_pgow1uten', '/dashboard', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:49:00'),
+(3786, 'session_1768758319725_pgow1uten', '/dashboard/analytics', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:49:00'),
+(3787, 'session_1768758319725_pgow1uten', '/dashboard/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:49:11'),
+(3788, 'session_1768694400028_si80ksisj', '/find-us', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:51:28'),
+(3789, 'session_1768758791619_nx3kk18d9', '/dashboard/gadgets', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 17:53:11'),
+(3790, 'session_1768759930028_si80ksisj', '/gadgets/20', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 18:12:20'),
+(3791, 'session_1768761463571_aq9b3o8kq', '/gadgets/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 18:37:44'),
+(3792, 'session_1768761638908_yfm18ich0', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 18:40:39'),
+(3793, 'session_1768762203533_1ajnrhv1w', '/', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 18:50:03'),
+(3794, 'session_1768762180028_sainv5vmz', '/gadgets/33', 'Xtrapush Gadgets : A little push to get you there', '2026-01-18 18:50:52');
 
 -- --------------------------------------------------------
 
@@ -4964,10 +5448,10 @@ CREATE TABLE `gadgets` (
   `id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
   `description` text NOT NULL,
-  `price` decimal(10,2) NOT NULL,
-  `price_gbp` decimal(10,2) DEFAULT NULL,
-  `monthly_price` decimal(10,2) DEFAULT NULL,
-  `monthly_price_gbp` decimal(10,2) DEFAULT NULL,
+  `price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `price_gbp` decimal(10,2) DEFAULT 0.00,
+  `monthly_price` decimal(10,2) DEFAULT 0.00,
+  `monthly_price_gbp` decimal(10,2) DEFAULT 0.00,
   `image_url` varchar(500) NOT NULL,
   `category` enum('smartphone','laptop','gaming','audio','wearable','accessories','tablet','productivity','desktop') NOT NULL,
   `brand` varchar(100) NOT NULL,
@@ -4995,52 +5479,108 @@ CREATE TABLE `gadgets` (
 --
 
 INSERT INTO `gadgets` (`id`, `name`, `description`, `price`, `price_gbp`, `monthly_price`, `monthly_price_gbp`, `image_url`, `category`, `brand`, `model`, `condition_status`, `specifications`, `has_3d_model`, `model3d_path`, `model3d_files`, `model3d_scale`, `model3d_position`, `model3d_rotation`, `model3d_config`, `in_stock`, `stock_quantity`, `total_variant_stock`, `has_variants`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'MacBook Pro M4', 'A powerful laptop for developers and creatives. Latest Apple Silicon M4 chip with enhanced performance.', 3500000.00, 1484.31, 291675.00, 123.69, 'https://sparkle-pro.co.uk/api/images/macbookm4.webp', 'laptop', 'Apple', 'MacBook Pro M4', 'new', '{\"display\": {\"size\": \"14 inch\", \"type\": \"Liquid Retina XDR\", \"resolution\": \"3024×1964\"}, \"processor\": \"Apple M4 chip\", \"storage\": [\"512GB SSD\", \"1TB SSD\", \"2TB SSD\"], \"memory\": [\"16GB\", \"32GB\", \"64GB\"], \"battery\": \"Up to 22 hours\", \"os\": \"macOS Sonoma\"}', 1, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 15, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(2, 'Samsung S25 Ultra', 'Camera at its peak. Premium flagship with S Pen and advanced AI photography features.', 2250000.00, 1250.00, 187500.00, 104.17, 'https://sparkle-pro.co.uk/api/images/s25ultra.webp', 'smartphone', 'Samsung', 'Galaxy S25 Ultra', 'new', '{\"display\": {\"size\": \"6.8 inch\", \"type\": \"Dynamic AMOLED 2X\", \"resolution\": \"3120×1440\"}, \"processor\": \"Snapdragon 8 Gen 4\", \"storage\": [\"256GB\", \"512GB\", \"1TB\"], \"camera\": {\"main\": \"200MP\", \"ultrawide\": \"12MP\", \"telephoto\": \"50MP\", \"periscope\": \"10MP\"}, \"battery\": \"5000 mAh\"}', 1, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 18, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(3, 'iPhone 13 Pro Max', 'Latest iPhone with titanium design and advanced camera system. Professional photography capabilities.', 2997500.00, 1665.28, 249800.00, 138.78, 'https://sparkle-pro.co.uk/api/images/iphone13promax.webp', 'smartphone', 'Apple', 'iPhone 13 Pro Max', 'new', '[]', 1, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 25, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:15:00'),
-(4, 'ASUS ROG Strix Scar 17', 'High-performance gaming laptop with RTX graphics and advanced cooling system.', 4500000.00, 2500.00, 375000.00, 208.33, 'https://sparkle-pro.co.uk/api/images/asusrog.webp', 'gaming', 'ASUS', 'ROG Strix Scar 17', 'new', '{\"display\": {\"size\": \"17.3 inch\", \"type\": \"IPS\", \"resolution\": \"1920×1080\", \"refresh_rate\": \"360Hz\"}, \"processor\": \"Intel Core i9-13980HX\", \"graphics\": \"NVIDIA GeForce RTX 4090\", \"storage\": [\"1TB SSD\", \"2TB SSD\"], \"memory\": [\"32GB DDR5\", \"64GB DDR5\"]}', 1, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 8, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(5, 'iPhone 16 Pro Max', 'The latest smartphone with an advanced camera system. Pro features for professional photography.', 5000000.00, 2777.78, 79.17, 43.98, 'https://sparkle-pro.co.uk/api/images/iphone16max.webp', 'smartphone', 'Apple', 'iPhone 16 Pro Max', 'new', '{\"display\": {\"size\": \"6.7 inch\", \"type\": \"Super Retina XDR OLED\", \"resolution\": \"2796×1290\"}, \"processor\": \"A18 Pro\", \"storage\": [\"256GB\", \"512GB\", \"1TB\"], \"camera\": {\"main\": \"48MP\", \"ultrawide\": \"12MP\", \"telephoto\": \"12MP\"}, \"battery\": \"4500 mAh\"}', 1, 'iphone_16_pro_max', '[\"scene.gltf\"]', 0.10, '[0, 0, 0]', '[0, 0, 0]', NULL, 1, 20, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(6, 'iPhone 16', 'Small Size, Intelligent Smartphone.', 3500000.00, 1944.44, 58.33, 32.41, 'https://sparkle-pro.co.uk/api/images/iphone16.webp', 'smartphone', 'Apple', 'iPhone 16', 'new', '{\"display\": {\"size\": \"6.1 inch\", \"type\": \"Super Retina XDR OLED\", \"resolution\": \"2556×1179\"}, \"processor\": \"A18\", \"storage\": [\"128GB\", \"256GB\", \"512GB\"], \"camera\": {\"main\": \"48MP\", \"ultrawide\": \"12MP\"}, \"battery\": \"3400 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 30, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(7, 'Samsung S25', 'Camera at its peak in small hands', 2650000.00, 1472.22, 58.33, 32.41, 'https://sparkle-pro.co.uk/api/images/s25.webp', 'smartphone', 'Samsung', 'Galaxy S25', 'new', '{\"display\": {\"size\": \"6.2 inch\", \"type\": \"Dynamic AMOLED 2X\", \"resolution\": \"2340×1080\"}, \"processor\": \"Snapdragon 8 Gen 4\", \"storage\": [\"128GB\", \"256GB\"], \"camera\": {\"main\": \"50MP\", \"ultrawide\": \"12MP\", \"telephoto\": \"10MP\"}, \"battery\": \"4200 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 22, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(8, 'Samsung S24', 'Camera at its peak in small hands', 2500000.00, 1388.89, 50.00, 27.78, 'https://sparkle-pro.co.uk/api/images/s24.webp', 'smartphone', 'Samsung', 'Galaxy S24', 'new', '{\"display\": {\"size\": \"6.2 inch\", \"type\": \"Dynamic AMOLED 2X\", \"resolution\": \"2340×1080\"}, \"processor\": \"Snapdragon 8 Gen 3\", \"storage\": [\"128GB\", \"256GB\"], \"camera\": {\"main\": \"50MP\", \"ultrawide\": \"12MP\", \"telephoto\": \"10MP\"}, \"battery\": \"4000 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 24, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(9, 'Samsung S24 Ultra', 'Beyond the limits', 3000000.00, 1666.67, 66.67, 37.04, 'https://sparkle-pro.co.uk/api/images/s24ultra.webp', 'smartphone', 'Samsung', 'Galaxy S24 Ultra', 'new', '{\"display\": {\"size\": \"6.8 inch\", \"type\": \"Dynamic AMOLED 2X\", \"resolution\": \"3120×1440\"}, \"processor\": \"Snapdragon 8 Gen 3\", \"storage\": [\"256GB\", \"512GB\", \"1TB\"], \"camera\": {\"main\": \"200MP\", \"ultrawide\": \"12MP\", \"telephoto\": \"50MP\"}, \"battery\": \"5000 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 20, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(10, 'ASUS TUF F15', 'Enjoy Gaming beyond reality, comes with DS5 controller', 400.00, 0.22, 40.83, 0.02, 'https://www.sparkle-pro.co.uk/api/images/asustuf1.webp', 'gaming', 'ASUS', 'TUF Gaming F15', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 5, 0, 0, 1, '2025-10-15 21:09:58', '2025-11-04 14:15:28'),
-(11, 'Acer Nitro 5', 'Gaming laptop with balanced performance for everyday play.', 3000000.00, 1666.67, 70.83, 39.35, 'https://sparkle-pro.co.uk/api/images/acernitro.webp', 'gaming', 'Acer', 'Nitro 5', 'new', '{\"display\": {\"size\": \"15.6 inch\", \"type\": \"IPS\", \"resolution\": \"1920×1080\", \"refresh_rate\": \"144Hz\"}, \"processor\": \"AMD Ryzen 5 / Intel Core i5\", \"graphics\": \"NVIDIA GeForce RTX 3050\", \"storage\": [\"512GB SSD\", \"1TB SSD\"], \"memory\": [\"16GB DDR4\"], \"os\": \"Windows 11\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 10, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(12, 'HP OMEN Gaming Laptop', 'Performance gaming laptop with advanced thermal management and RGB lighting.', 4000000.00, 2222.22, 116.67, 64.81, 'https://sparkle-pro.co.uk/api/images/hpomen.webp', 'gaming', 'HP', 'OMEN 17', 'new', '{\"display\": {\"size\": \"17.3 inch\", \"type\": \"IPS\", \"resolution\": \"1920×1080\", \"refresh_rate\": \"165Hz\"}, \"processor\": \"AMD Ryzen 7 7840HS\", \"graphics\": \"NVIDIA GeForce RTX 4070\", \"storage\": [\"1TB SSD\"], \"memory\": [\"16GB DDR5\", \"32GB DDR5\"], \"battery\": \"83Wh\", \"os\": \"Windows 11\"}', 1, 'hp_omen_laptop', '[\"scene.gltf\"]', 1.00, '[0, -0.5, 0]', '[0, 0, 0]', NULL, 1, 8, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(13, 'MacBook Pro M3 16-inch', 'Professional laptop with M3 chip, ideal for development and creative work.', 3500000.00, 1944.44, 100.00, 55.56, 'https://sparkle-pro.co.uk/api/images/macbookm3.webp', 'laptop', 'Apple', 'MacBook Pro 16 M3', 'new', '{\"display\": {\"size\": \"16 inch\", \"type\": \"Liquid Retina XDR\", \"resolution\": \"3456×2234\"}, \"processor\": \"Apple M3\", \"storage\": [\"512GB SSD\", \"1TB SSD\", \"2TB SSD\"], \"memory\": [\"16GB\", \"32GB\"], \"battery\": \"Up to 22 hours\", \"os\": \"macOS Sonoma\"}', 1, 'macbook_pro_m3_16_inch_2024', '[\"scene.gltf\"]', 1.20, '[0, -0.5, 0]', '[0, 0, 0]', NULL, 1, 12, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(14, 'Xiaomi Redmi 12', 'Budget smartphone with a large display and solid battery.', 350000.00, 194.44, 15.00, 8.33, 'https://sparkle-pro.co.uk/api/images/redmi12.webp', 'smartphone', 'Xiaomi', 'Redmi 12', 'new', '{\"display\": {\"size\": \"6.79 inch\", \"type\": \"IPS\", \"resolution\": \"2460×1080\", \"refresh_rate\": \"90Hz\"}, \"processor\": \"Helio G88\", \"storage\": [\"128GB\"], \"memory\": [\"8GB\"], \"battery\": \"5000 mAh\"}', 1, 'xiaomi-redmi-12', '[\"scene.gltf\"]', 0.10, '[0, 0, 0]', '[0, 0, 0]', NULL, 1, 50, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(15, 'Xiaomi Redmi 9', 'Entry-level smartphone with reliable performance.', 250000.00, 138.89, 11.67, 6.48, 'https://sparkle-pro.co.uk/api/images/redmi9.webp', 'smartphone', 'Xiaomi', 'Redmi 9', 'new', '{\"display\": {\"size\": \"6.53 inch\", \"type\": \"IPS\", \"resolution\": \"2340×1080\"}, \"processor\": \"Helio G80\", \"storage\": [\"64GB\"], \"memory\": [\"4GB\"], \"battery\": \"5020 mAh\"}', 1, 'xiaomi-redmi-9t', '[\"scene.gltf\"]', 0.10, '[0, 0, 0]', '[0, 0, 0]', NULL, 1, 60, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(16, 'Vivo X80', 'Premium smartphone with Zeiss optics and powerful chipset.', 350000.00, 194.44, 41.67, 23.15, 'https://sparkle-pro.co.uk/api/images/vivox80.webp', 'smartphone', 'Vivo', 'X80', 'new', '{\"display\": {\"size\": \"6.78 inch\", \"type\": \"AMOLED\", \"resolution\": \"2400×1080\", \"refresh_rate\": \"120Hz\"}, \"processor\": \"Dimensity 9000\", \"storage\": [\"256GB\"], \"memory\": [\"12GB\"], \"battery\": \"4500 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 25, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(17, 'MacBook Pro 2021 16-inch', 'Professional laptop with M1 Pro/Max chip. Perfect for video editing and development.', 3000000.00, 1666.67, 100.00, 55.56, 'https://sparkle-pro.co.uk/api/images/macbookpro2021.webp', 'laptop', 'Apple', 'MacBook Pro 2021', 'new', '{\"display\": {\"size\": \"16 inch\", \"type\": \"Liquid Retina XDR\", \"resolution\": \"3456×2234\"}, \"processor\": \"Apple M1 Pro/Max\", \"storage\": [\"512GB SSD\", \"1TB SSD\", \"2TB SSD\", \"4TB SSD\"], \"memory\": [\"16GB\", \"32GB\", \"64GB\"], \"battery\": \"Up to 21 hours\", \"os\": \"macOS Monterey\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 10, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(18, 'Lenovo IdeaPad Gaming 3', 'Affordable gaming laptop with Ryzen/Intel options and solid thermals.', 2200000.00, 1222.22, 62.50, 34.72, 'https://sparkle-pro.co.uk/api/images/lenevoideapad.webp', 'laptop', 'Lenovo', 'IdeaPad ', 'new', '{\"display\": {\"size\": \"15.6 inch\", \"type\": \"IPS\", \"resolution\": \"1920×1080\", \"refresh_rate\": \"120Hz\"}, \"processor\": [\"AMD Ryzen 5\", \"Intel Core i5\"], \"graphics\": [\"NVIDIA GeForce GTX 1650\", \"RTX 3050\"], \"storage\": [\"512GB SSD\", \"1TB SSD\"], \"memory\": [\"8GB\", \"16GB\"], \"os\": \"Windows 11\"}', 1, 'lenovo', '[\"source/two283.fbx\"]', 1.00, '[0, -0.5, 0]', '[0, 0, 0]', NULL, 1, 15, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(19, 'Samsung Galaxy A14', 'Affordable smartphone with long battery life and smooth performance.', 550000.00, 305.56, 4825.00, 2.68, 'https://sparkle-pro.co.uk/api/images/galaxy14.webp', 'smartphone', 'Samsung', 'Galaxy A14', 'new', '{\"display\": {\"size\": \"6.6 inch\", \"type\": \"PLS LCD\", \"resolution\": \"2408×1080\", \"refresh_rate\": \"90Hz\"}, \"processor\": [\"Exynos 1330\", \"Helio G80\"], \"storage\": [\"64GB\", \"128GB\"], \"memory\": [\"4GB\", \"6GB\"], \"battery\": \"5000 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 35, 0, 0, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58'),
-(20, 'Nintendo Switch', 'A mini gaming experience portable and Light', 600000.00, 333.33, 40000.00, 22.22, 'https://sparkle-pro.co.uk/api/images/nintendo.webp', 'gaming', 'Nintendo', '1', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 15:40:50', '2025-10-16 15:41:19'),
-(21, 'Sony PlayStation 5', 'A Video Game Console worth the experience', 1500000.00, 833.33, 40000.00, 22.22, 'https://sparkle-pro.co.uk/api/images/ps5.webp', 'gaming', 'Sony', 'All', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:22:57', '2025-10-16 17:22:57'),
-(22, 'Sony PlayStation 4', 'A Video Game Console worth the experience', 700000.00, 388.89, 20000.00, 11.11, 'https://sparkle-pro.co.uk/api/images/ps4.webp', 'gaming', 'Sony', 'All', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:24:33', '2025-10-16 17:24:33'),
-(23, 'Xbox Series X', 'A Video Game Console worth the experience', 1400000.00, 777.78, 50000.00, 27.78, 'https://sparkle-pro.co.uk/api/images/xbox.webp', 'gaming', 'Microsoft', 'Xbox One', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:26:19', '2025-10-16 17:26:19'),
-(24, 'Xbox Controller', 'A controller for the Xbox / Microsoft', 300000.00, 166.67, 10000.00, 5.56, 'https://sparkle-pro.co.uk/api/images/xboxcontroller.webp', 'gaming', 'Microsoft', 'Xbox', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:28:35', '2025-10-16 17:28:35'),
-(25, 'DualShock 4 Sony', 'A controller made for PS4', 60000.00, 33.33, 2000.00, 1.11, 'https://sparkle-pro.co.uk/api/images/ds4.webp', 'gaming', 'Sony', 'DS4', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:30:01', '2025-10-16 17:30:01'),
-(26, 'DualShock 5 Sony', 'A video game controller made for the PS5', 300000.00, 166.67, 20000.00, 11.11, 'https://sparkle-pro.co.uk/api/images/ds5.webp', 'gaming', 'Sony', 'DS5', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:31:19', '2025-10-16 17:31:19'),
-(27, 'Iphone 13 ', 'Apple iPhone', 800000.00, 444.44, 30000.00, 16.67, 'https://sparkle-pro.co.uk/api/images/iphone13.webp', '', 'Apple', 'iPhone 13', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:15:12', '2025-10-17 17:15:12'),
-(28, 'iPhone 14 ', 'The best smartphone for technology', 900000.00, 500.00, 30000.00, 16.67, 'https://sparkle-pro.co.uk/api/images/iPhone14.webp', '', 'Apple', 'iphone 14', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:17:35', '2025-10-17 17:17:35'),
-(29, 'Iphone 15', 'Base model of 15', 1000000.00, 555.56, 40000.00, 22.22, 'https://sparkle-pro.co.uk/api/images/iphone15.webp', '', 'Apple', 'Iphone 15', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:19:18', '2025-10-17 17:19:18'),
-(30, 'iPhone 17', 'Latest base model of an iphone', 1200000.00, 666.67, 50000.00, 27.78, 'https://sparkle-pro.co.uk/api/images/iphone17.webp', '', 'Apple', 'Iphone 17', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:20:40', '2025-10-17 17:20:40'),
-(31, 'iPhone 14 Pro Max', 'High end iphone 14', 2250000.00, 1250.00, 60000.00, 33.33, 'https://sparkle-pro.co.uk/api/images/iphone14promax.webp', '', 'Apple', 'Iphone 14 pro max', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:23:10', '2025-10-17 17:23:10'),
-(32, 'iPhone 15 Pro Max', 'High End iPhone 15', 2500000.00, 1388.89, 70000.00, 38.89, 'https://sparkle-pro.co.uk/api/images/iphone15max.webp', '', 'Apple', 'Iphone15', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:25:08', '2025-10-17 17:25:08'),
-(33, 'iPhone 17 Pro Max', 'Top Notch Iphone 17', 3500000.00, 1944.44, 90000.00, 50.00, 'https://sparkle-pro.co.uk/api/images/iphone17promax.webp', '', 'Apple', 'iphone17 ', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:27:29', '2025-10-17 17:27:29'),
-(34, 'HP Laptop 14s', 'Great School and Work Laptop', 800000.00, 444.44, 20000.00, 11.11, 'https://sparkle-pro.co.uk/api/images/hp.webp', '', 'HP', 'hp-fq14s', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:23:07', '2025-10-18 11:23:07'),
-(35, 'Dell Latitude Laptop (5440)', 'A Standard Dell Laptop', 600000.00, 333.33, 30000.00, 16.67, 'https://sparkle-pro.co.uk/api/images/delllattude.webp', '', 'Dell', 'Latitude', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:25:12', '2025-10-18 11:25:12'),
-(36, 'MSI 27\" Monitor', 'Enjoy the View of Gaming', 500000.00, 277.78, 300000.00, 166.67, 'https://sparkle-pro.co.uk/api/images/msi.webp', 'gaming', 'MSI', 'Monitor', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:27:53', '2025-10-18 11:27:53'),
-(37, 'Nvidea RTX 3060 Graphics Card', 'The engine of gaming', 400000.00, 222.22, 40000.00, 22.22, 'https://sparkle-pro.co.uk/api/images/rtx3060.webp', 'gaming', 'Nvidea', '3060', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:29:21', '2025-10-18 11:29:21'),
-(38, 'Nvidea RTX 2070 ', 'The engine of gaming ', 500000.00, 277.78, 50000.00, 27.78, 'https://sparkle-pro.co.uk/api/images/nvidia-rtx-2070-photo.webp', 'gaming', 'Nvidea', '2070', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:31:02', '2025-10-18 11:31:02'),
-(39, 'Air fryer ', 'A handy tool for cooking that saves alot of energy', 100000.00, 55.56, 2000.00, 1.11, 'https://sparkle-pro.co.uk/api/images/airfryer.webp', '', 'Air fryer', 'Air fryer', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:33:17', '2025-10-18 11:33:17'),
-(40, 'Tecno Pop 9', 'A budget phone that is for all users', 300000.00, 166.67, 10000.00, 5.56, 'https://sparkle-pro.co.uk/api/images/tecnop9.webp', '', 'Tecno', 'Pop', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:35:56', '2025-10-18 11:35:56'),
-(41, 'JBL Headphones', 'powerful for the soul', 150000.00, 83.33, 30000.00, 16.67, 'https://sparkle-pro.co.uk/api/images/jblhead.webp', 'accessories', 'JBL', 'JBL', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:39:00', '2025-10-18 11:39:28'),
-(42, 'JBL Speaker', 'Sound your environment', 150000.00, 83.33, 30000.00, 16.67, 'https://sparkle-pro.co.uk/api/images/jblmini.webp', 'accessories', 'JBL', 'JBL', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:40:43', '2025-10-18 11:40:43'),
-(43, 'Tecno Spark 30', 'A great budget phone', 400000.00, 222.22, 30000.00, 16.67, 'https://sparkle-pro.co.uk/api/images/spark30.webp', '', 'Tecno', 'Spark', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:43:54', '2025-10-18 11:43:54'),
-(44, 'USB cables', 'Useful for charging any gadget', 5000.00, 2.78, 1000.00, 0.56, 'https://sparkle-pro.co.uk/api/images/usb.webp', 'accessories', 'USB', 'USB', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:44:59', '2025-10-18 11:44:59'),
-(45, 'Powerbank', 'The most convient tool for constant power', 20000.00, 11.11, 1500.00, 0.83, 'https://sparkle-pro.co.uk/api/images/powebank.webp', '', 'Powerbank', 'Powerbank', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:46:25', '2025-10-18 11:46:25'),
-(46, 'Lenovo Legion', 'High End Gaming Laptop', 200000.00, 111.11, 50900.00, 28.28, 'https://sparkle-pro.co.uk/api/images/legion.webp', 'gaming', 'Lenovo', 'Legion', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 12:11:01', '2025-10-18 12:11:01');
+(1, 'MacBook Pro M4', 'A powerful laptop for developers and creatives. Latest Apple Silicon M4 chip with enhanced performance.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/macbookm4.webp', 'laptop', 'Apple', 'MacBook Pro M4', 'new', '{\"display\": {\"size\": \"14 inch\", \"type\": \"Liquid Retina XDR\", \"resolution\": \"3024×1964\"}, \"processor\": \"Apple M4 chip\", \"storage\": [\"512GB SSD\", \"1TB SSD\", \"2TB SSD\"], \"memory\": [\"16GB\", \"32GB\", \"64GB\"], \"battery\": \"Up to 22 hours\", \"os\": \"macOS Sonoma\"}', 1, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(2, 'Samsung S25 Ultra', 'Camera at its peak. Premium flagship with S Pen and advanced AI photography features.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/s25ultra.webp', 'smartphone', 'Samsung', 'Galaxy S25 Ultra', 'new', '{\"display\": {\"size\": \"6.8 inch\", \"type\": \"Dynamic AMOLED 2X\", \"resolution\": \"3120×1440\"}, \"processor\": \"Snapdragon 8 Gen 4\", \"storage\": [\"256GB\", \"512GB\", \"1TB\"], \"camera\": {\"main\": \"200MP\", \"ultrawide\": \"12MP\", \"telephoto\": \"50MP\", \"periscope\": \"10MP\"}, \"battery\": \"5000 mAh\"}', 1, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(3, 'iPhone 13 Pro Max', 'Latest iPhone with titanium design and advanced camera system. Professional photography capabilities.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/iphone13promax.webp', 'smartphone', 'Apple', 'iPhone 13 Pro Max', 'new', '[]', 1, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(4, 'ASUS ROG Strix Scar 17', 'High-performance gaming laptop with RTX graphics and advanced cooling system.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/asusrog.webp', 'gaming', 'ASUS', 'ROG Strix Scar 17', 'new', '{\"display\": {\"size\": \"17.3 inch\", \"type\": \"IPS\", \"resolution\": \"1920×1080\", \"refresh_rate\": \"360Hz\"}, \"processor\": \"Intel Core i9-13980HX\", \"graphics\": \"NVIDIA GeForce RTX 4090\", \"storage\": [\"1TB SSD\", \"2TB SSD\"], \"memory\": [\"32GB DDR5\", \"64GB DDR5\"]}', 1, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(5, 'iPhone 16 Pro Max', 'The latest smartphone with an advanced camera system. Pro features for professional photography.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/iphone16max.webp', 'smartphone', 'Apple', 'iPhone 16 Pro Max', 'new', '{\"display\": {\"size\": \"6.7 inch\", \"type\": \"Super Retina XDR OLED\", \"resolution\": \"2796×1290\"}, \"processor\": \"A18 Pro\", \"storage\": [\"256GB\", \"512GB\", \"1TB\"], \"camera\": {\"main\": \"48MP\", \"ultrawide\": \"12MP\", \"telephoto\": \"12MP\"}, \"battery\": \"4500 mAh\"}', 1, 'iphone_16_pro_max', '[\"scene.gltf\"]', 0.10, '[0, 0, 0]', '[0, 0, 0]', NULL, 1, 0, 1, 1, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(6, 'iPhone 16', 'Small Size, Intelligent Smartphone.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/iphone16.webp', 'smartphone', 'Apple', 'iPhone 16', 'new', '{\"display\": {\"size\": \"6.1 inch\", \"type\": \"Super Retina XDR OLED\", \"resolution\": \"2556×1179\"}, \"processor\": \"A18\", \"storage\": [\"128GB\", \"256GB\", \"512GB\"], \"camera\": {\"main\": \"48MP\", \"ultrawide\": \"12MP\"}, \"battery\": \"3400 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(7, 'Samsung S25', 'Camera at its peak in small hands', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/s25.webp', 'smartphone', 'Samsung', 'Galaxy S25', 'new', '{\"display\": {\"size\": \"6.2 inch\", \"type\": \"Dynamic AMOLED 2X\", \"resolution\": \"2340×1080\"}, \"processor\": \"Snapdragon 8 Gen 4\", \"storage\": [\"128GB\", \"256GB\"], \"camera\": {\"main\": \"50MP\", \"ultrawide\": \"12MP\", \"telephoto\": \"10MP\"}, \"battery\": \"4200 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(8, 'Samsung S24', 'Camera at its peak in small hands', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/s24.webp', 'smartphone', 'Samsung', 'Galaxy S24', 'new', '{\"display\": {\"size\": \"6.2 inch\", \"type\": \"Dynamic AMOLED 2X\", \"resolution\": \"2340×1080\"}, \"processor\": \"Snapdragon 8 Gen 3\", \"storage\": [\"128GB\", \"256GB\"], \"camera\": {\"main\": \"50MP\", \"ultrawide\": \"12MP\", \"telephoto\": \"10MP\"}, \"battery\": \"4000 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(9, 'Samsung S24 Ultra', 'Beyond the limits', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/s24ultra.webp', 'smartphone', 'Samsung', 'Galaxy S24 Ultra', 'new', '{\"display\": {\"size\": \"6.8 inch\", \"type\": \"Dynamic AMOLED 2X\", \"resolution\": \"3120×1440\"}, \"processor\": \"Snapdragon 8 Gen 3\", \"storage\": [\"256GB\", \"512GB\", \"1TB\"], \"camera\": {\"main\": \"200MP\", \"ultrawide\": \"12MP\", \"telephoto\": \"50MP\"}, \"battery\": \"5000 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(10, 'ASUS TUF F15', 'Enjoy Gaming beyond reality, comes with DS5 controller', 0.00, 0.00, 0.00, 0.00, 'https://www.sparkle-pro.co.uk/api/images/asustuf1.webp', 'gaming', 'ASUS', 'TUF Gaming F15', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 2, 1, 1, '2025-10-15 21:09:58', '2026-01-18 17:53:04'),
+(11, 'Acer Nitro 5', 'Gaming laptop with balanced performance for everyday play.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/acernitro.webp', 'gaming', 'Acer', 'Nitro 5', 'new', '{\"display\": {\"size\": \"15.6 inch\", \"type\": \"IPS\", \"resolution\": \"1920×1080\", \"refresh_rate\": \"144Hz\"}, \"processor\": \"AMD Ryzen 5 / Intel Core i5\", \"graphics\": \"NVIDIA GeForce RTX 3050\", \"storage\": [\"512GB SSD\", \"1TB SSD\"], \"memory\": [\"16GB DDR4\"], \"os\": \"Windows 11\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(12, 'HP OMEN Gaming Laptop', 'Performance gaming laptop with advanced thermal management and RGB lighting.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/hpomen.webp', 'gaming', 'HP', 'OMEN 17', 'new', '{\"display\": {\"size\": \"17.3 inch\", \"type\": \"IPS\", \"resolution\": \"1920×1080\", \"refresh_rate\": \"165Hz\"}, \"processor\": \"AMD Ryzen 7 7840HS\", \"graphics\": \"NVIDIA GeForce RTX 4070\", \"storage\": [\"1TB SSD\"], \"memory\": [\"16GB DDR5\", \"32GB DDR5\"], \"battery\": \"83Wh\", \"os\": \"Windows 11\"}', 1, 'hp_omen_laptop', '[\"scene.gltf\"]', 1.00, '[0, -0.5, 0]', '[0, 0, 0]', NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(13, 'MacBook Pro M3 16-inch', 'Professional laptop with M3 chip, ideal for development and creative work.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/macbookm3.webp', 'laptop', 'Apple', 'MacBook Pro 16 M3', 'new', '{\"display\": {\"size\": \"16 inch\", \"type\": \"Liquid Retina XDR\", \"resolution\": \"3456×2234\"}, \"processor\": \"Apple M3\", \"storage\": [\"512GB SSD\", \"1TB SSD\", \"2TB SSD\"], \"memory\": [\"16GB\", \"32GB\"], \"battery\": \"Up to 22 hours\", \"os\": \"macOS Sonoma\"}', 1, 'macbook_pro_m3_16_inch_2024', '[\"scene.gltf\"]', 1.20, '[0, -0.5, 0]', '[0, 0, 0]', NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(14, 'Xiaomi Redmi 12', 'Budget smartphone with a large display and solid battery.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/redmi12.webp', 'smartphone', 'Xiaomi', 'Redmi 12', 'new', '{\"display\": {\"size\": \"6.79 inch\", \"type\": \"IPS\", \"resolution\": \"2460×1080\", \"refresh_rate\": \"90Hz\"}, \"processor\": \"Helio G88\", \"storage\": [\"128GB\"], \"memory\": [\"8GB\"], \"battery\": \"5000 mAh\"}', 1, 'xiaomi-redmi-12', '[\"scene.gltf\"]', 0.10, '[0, 0, 0]', '[0, 0, 0]', NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(15, 'Xiaomi Redmi 9', 'Entry-level smartphone with reliable performance.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/redmi9.webp', 'smartphone', 'Xiaomi', 'Redmi 9', 'new', '{\"display\": {\"size\": \"6.53 inch\", \"type\": \"IPS\", \"resolution\": \"2340×1080\"}, \"processor\": \"Helio G80\", \"storage\": [\"64GB\"], \"memory\": [\"4GB\"], \"battery\": \"5020 mAh\"}', 1, 'xiaomi-redmi-9t', '[\"scene.gltf\"]', 0.10, '[0, 0, 0]', '[0, 0, 0]', NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(16, 'Vivo X80', 'Premium smartphone with Zeiss optics and powerful chipset.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/vivox80.webp', 'smartphone', 'Vivo', 'X80', 'new', '{\"display\": {\"size\": \"6.78 inch\", \"type\": \"AMOLED\", \"resolution\": \"2400×1080\", \"refresh_rate\": \"120Hz\"}, \"processor\": \"Dimensity 9000\", \"storage\": [\"256GB\"], \"memory\": [\"12GB\"], \"battery\": \"4500 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(17, 'MacBook Pro 2021 16-inch', 'Professional laptop with M1 Pro/Max chip. Perfect for video editing and development.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/macbookpro2021.webp', 'laptop', 'Apple', 'MacBook Pro 2021', 'new', '{\"display\": {\"size\": \"16 inch\", \"type\": \"Liquid Retina XDR\", \"resolution\": \"3456×2234\"}, \"processor\": \"Apple M1 Pro/Max\", \"storage\": [\"512GB SSD\", \"1TB SSD\", \"2TB SSD\", \"4TB SSD\"], \"memory\": [\"16GB\", \"32GB\", \"64GB\"], \"battery\": \"Up to 21 hours\", \"os\": \"macOS Monterey\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(18, 'Lenovo IdeaPad Gaming 3', 'Affordable gaming laptop with Ryzen/Intel options and solid thermals.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/lenevoideapad.webp', 'laptop', 'Lenovo', 'IdeaPad ', 'new', '{\"display\": {\"size\": \"15.6 inch\", \"type\": \"IPS\", \"resolution\": \"1920×1080\", \"refresh_rate\": \"120Hz\"}, \"processor\": [\"AMD Ryzen 5\", \"Intel Core i5\"], \"graphics\": [\"NVIDIA GeForce GTX 1650\", \"RTX 3050\"], \"storage\": [\"512GB SSD\", \"1TB SSD\"], \"memory\": [\"8GB\", \"16GB\"], \"os\": \"Windows 11\"}', 1, 'lenovo', '[\"source/two283.fbx\"]', 1.00, '[0, -0.5, 0]', '[0, 0, 0]', NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(19, 'Samsung Galaxy A14', 'Affordable smartphone with long battery life and smooth performance.', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/galaxy14.webp', 'smartphone', 'Samsung', 'Galaxy A14', 'new', '{\"display\": {\"size\": \"6.6 inch\", \"type\": \"PLS LCD\", \"resolution\": \"2408×1080\", \"refresh_rate\": \"90Hz\"}, \"processor\": [\"Exynos 1330\", \"Helio G80\"], \"storage\": [\"64GB\", \"128GB\"], \"memory\": [\"4GB\", \"6GB\"], \"battery\": \"5000 mAh\"}', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-15 21:09:58', '2026-01-17 20:37:04'),
+(20, 'Nintendo Switch', 'A mini gaming experience portable and Light', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/nintendo.webp', 'gaming', 'Nintendo', '1', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 15:40:50', '2026-01-17 20:37:04'),
+(21, 'Sony PlayStation 5', 'A Video Game Console worth the experience', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/ps5.webp', 'gaming', 'Sony', 'All', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:22:57', '2026-01-17 20:37:04'),
+(22, 'Sony PlayStation 4', 'A Video Game Console worth the experience', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/ps4.webp', 'gaming', 'Sony', 'All', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:24:33', '2026-01-17 20:37:04'),
+(23, 'Xbox Series X', 'A Video Game Console worth the experience', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/xbox.webp', 'gaming', 'Microsoft', 'Xbox One', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:26:19', '2026-01-17 20:37:04'),
+(24, 'Xbox Controller', 'A controller for the Xbox / Microsoft', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/xboxcontroller.webp', 'gaming', 'Microsoft', 'Xbox', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:28:35', '2026-01-17 20:37:04'),
+(25, 'DualShock 4 Sony', 'A controller made for PS4', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/ds4.webp', 'gaming', 'Sony', 'DS4', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:30:01', '2026-01-17 20:37:04'),
+(26, 'DualShock 5 Sony', 'A video game controller made for the PS5', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/ds5.webp', 'gaming', 'Sony', 'DS5', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-16 17:31:19', '2026-01-17 20:37:04'),
+(27, 'Iphone 13 ', 'Apple iPhone', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/iphone13.webp', '', 'Apple', 'iPhone 13', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:15:12', '2026-01-17 20:37:04'),
+(28, 'iPhone 14 ', 'The best smartphone for technology', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/iPhone14.webp', '', 'Apple', 'iphone 14', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:17:35', '2026-01-17 20:37:04'),
+(29, 'Iphone 15', 'Base model of 15', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/iphone15.webp', '', 'Apple', 'Iphone 15', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:19:18', '2026-01-17 20:37:04'),
+(30, 'iPhone 17', 'Latest base model of an iphone', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/iphone17.webp', '', 'Apple', 'Iphone 17', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:20:40', '2026-01-17 20:37:04'),
+(31, 'iPhone 14 Pro Max', 'High end iphone 14', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/iphone14promax.webp', '', 'Apple', 'Iphone 14 pro max', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:23:10', '2026-01-17 20:37:04'),
+(32, 'iPhone 15 Pro Max', 'High End iPhone 15', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/iphone15max.webp', '', 'Apple', 'Iphone15', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:25:08', '2026-01-17 20:37:04'),
+(33, 'iPhone 17 Pro Max', 'Top Notch Iphone 17', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/iphone17promax.webp', '', 'Apple', 'iphone17 ', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-17 17:27:29', '2026-01-17 20:37:04'),
+(34, 'HP Laptop 14s', 'Great School and Work Laptop', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/hp.webp', '', 'HP', 'hp-fq14s', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:23:07', '2026-01-17 20:37:04'),
+(35, 'Dell Latitude Laptop (5440)', 'A Standard Dell Laptop', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/delllattude.webp', '', 'Dell', 'Latitude', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:25:12', '2026-01-17 20:37:04'),
+(36, 'MSI 27\" Monitor', 'Enjoy the View of Gaming', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/msi.webp', 'gaming', 'MSI', 'Monitor', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:27:53', '2026-01-17 20:37:04'),
+(37, 'Nvidea RTX 3060 Graphics Card', 'The engine of gaming', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/rtx3060.webp', 'gaming', 'Nvidea', '3060', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:29:21', '2026-01-17 20:37:04'),
+(38, 'Nvidea RTX 2070 ', 'The engine of gaming ', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/nvidia-rtx-2070-photo.webp', 'gaming', 'Nvidea', '2070', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:31:02', '2026-01-17 20:37:04'),
+(39, 'Air fryer ', 'A handy tool for cooking that saves alot of energy', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/airfryer.webp', '', 'Air fryer', 'Air fryer', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:33:17', '2026-01-17 20:37:04'),
+(40, 'Tecno Pop 9', 'A budget phone that is for all users', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/tecnop9.webp', '', 'Tecno', 'Pop', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:35:56', '2026-01-17 20:37:04'),
+(41, 'JBL Headphones', 'powerful for the soul', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/jblhead.webp', 'accessories', 'JBL', 'JBL', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:39:00', '2026-01-17 20:37:04'),
+(42, 'JBL Speaker', 'Sound your environment', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/jblmini.webp', 'accessories', 'JBL', 'JBL', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:40:43', '2026-01-17 20:37:04'),
+(43, 'Tecno Spark 30', 'A great budget phone', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/spark30.webp', '', 'Tecno', 'Spark', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:43:54', '2026-01-17 20:37:04'),
+(44, 'USB cables', 'Useful for charging any gadget', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/usb.webp', 'accessories', 'USB', 'USB', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 1000, 1, 1, '2025-10-18 11:44:59', '2026-01-18 17:51:58'),
+(45, 'Powerbank', 'The most convient tool for constant power', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/powebank.webp', '', 'Powerbank', 'Powerbank', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 11:46:25', '2026-01-17 20:37:04'),
+(46, 'Lenovo Legion', 'High End Gaming Laptop', 0.00, 0.00, 0.00, 0.00, 'https://sparkle-pro.co.uk/api/images/legion.webp', 'gaming', 'Lenovo', 'Legion', 'new', '[]', 0, NULL, NULL, 1.00, NULL, NULL, NULL, 1, 0, 0, 0, 1, '2025-10-18 12:11:01', '2026-01-17 20:37:04');
+
+--
+-- Triggers `gadgets`
+--
+DELIMITER $$
+CREATE TRIGGER `gadget_price_audit` AFTER UPDATE ON `gadgets` FOR EACH ROW BEGIN
+    IF OLD.price != NEW.price OR OLD.price_gbp != NEW.price_gbp THEN
+        INSERT INTO gadget_pricing_audit (
+            gadget_id, action, old_price_mwk, new_price_mwk, 
+            old_price_gbp, new_price_gbp, changed_by, change_reason
+        ) VALUES (
+            NEW.id, 'PRICE_UPDATE', OLD.price, NEW.price,
+            OLD.price_gbp, NEW.price_gbp, USER(), 'Automatic zero-price enforcement'
+        );
+    END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `prevent_old_pricing_insert` BEFORE INSERT ON `gadgets` FOR EACH ROW BEGIN
+    SET NEW.price = 0.00;
+    SET NEW.price_gbp = 0.00;
+    SET NEW.monthly_price = 0.00;
+    SET NEW.monthly_price_gbp = 0.00;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `prevent_old_pricing_update` BEFORE UPDATE ON `gadgets` FOR EACH ROW BEGIN
+    -- Only allow zero prices to prevent old pricing method reintroduction
+    IF NEW.price != 0 OR NEW.price_gbp != 0 OR NEW.monthly_price != 0 OR NEW.monthly_price_gbp != 0 THEN
+        SIGNAL SQLSTATE '45000' 
+        SET MESSAGE_TEXT = 'Cannot set non-zero prices. All pricing must come from variants.';
+    END IF;
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `gadget_pricing_audit`
+--
+
+CREATE TABLE `gadget_pricing_audit` (
+  `id` int(11) NOT NULL,
+  `gadget_id` int(11) NOT NULL,
+  `action` varchar(20) NOT NULL,
+  `old_price_mwk` decimal(10,2) DEFAULT NULL,
+  `new_price_mwk` decimal(10,2) DEFAULT NULL,
+  `old_price_gbp` decimal(10,2) DEFAULT NULL,
+  `new_price_gbp` decimal(10,2) DEFAULT NULL,
+  `changed_by` varchar(255) DEFAULT NULL,
+  `change_reason` text DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 -- --------------------------------------------------------
 
@@ -5065,8 +5605,37 @@ CREATE TABLE `gadget_variants` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 --
+-- Dumping data for table `gadget_variants`
+--
+
+INSERT INTO `gadget_variants` (`id`, `gadget_id`, `storage`, `color`, `color_hex`, `condition_status`, `price`, `price_gbp`, `stock_quantity`, `sku`, `is_active`, `created_at`, `updated_at`) VALUES
+(1, 5, '128GB', 'DESERT', NULL, 'new', 4000000.00, 700.00, 1, NULL, 0, '2026-01-17 19:59:36', '2026-01-17 20:00:15'),
+(2, 5, '256GB', 'DESERT', NULL, 'new', 4000000.00, 700.00, 1, NULL, 0, '2026-01-17 20:01:00', '2026-01-17 20:01:46'),
+(3, 5, '256GB', 'Desert Titanium', NULL, 'like_new', 4000000.00, 750.00, 1, NULL, 1, '2026-01-17 20:02:25', '2026-01-17 20:02:25'),
+(4, 44, 'N/A', NULL, NULL, 'new', 10000.00, 5.99, 1000, NULL, 1, '2026-01-18 17:51:58', '2026-01-18 17:51:58'),
+(5, 10, '512', 'Black', NULL, 'good', 2000000.00, 50.00, 2, NULL, 1, '2026-01-18 17:53:04', '2026-01-18 17:53:04');
+
+--
 -- Triggers `gadget_variants`
 --
+DELIMITER $$
+CREATE TRIGGER `maintain_gadget_variant_data` AFTER INSERT ON `gadget_variants` FOR EACH ROW BEGIN
+    CALL RefreshGadgetVariantData(NEW.gadget_id);
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `maintain_gadget_variant_data_delete` AFTER DELETE ON `gadget_variants` FOR EACH ROW BEGIN
+    CALL RefreshGadgetVariantData(OLD.gadget_id);
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `maintain_gadget_variant_data_update` AFTER UPDATE ON `gadget_variants` FOR EACH ROW BEGIN
+    CALL RefreshGadgetVariantData(NEW.gadget_id);
+END
+$$
+DELIMITER ;
 DELIMITER $$
 CREATE TRIGGER `update_gadget_stock_after_variant_delete` AFTER DELETE ON `gadget_variants` FOR EACH ROW BEGIN
     DECLARE variant_count INT;
@@ -5111,6 +5680,28 @@ CREATE TRIGGER `update_gadget_stock_after_variant_update` AFTER UPDATE ON `gadge
 END
 $$
 DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `gadget_variant_summary`
+-- (See below for the actual view)
+--
+CREATE TABLE `gadget_variant_summary` (
+`gadget_id` int(11)
+,`name` varchar(255)
+,`category` enum('smartphone','laptop','gaming','audio','wearable','accessories','tablet','productivity','desktop')
+,`brand` varchar(100)
+,`model` varchar(150)
+,`condition_status` enum('new','like_new','good','fair','poor')
+,`in_stock` tinyint(1)
+,`is_active` tinyint(1)
+,`effective_price` decimal(10,2)
+,`effective_price_gbp` decimal(10,2)
+,`total_stock` decimal(32,0)
+,`active_variant_count` bigint(21)
+,`available_variant_count` bigint(21)
+);
 
 -- --------------------------------------------------------
 
@@ -5317,7 +5908,14 @@ INSERT INTO `orders` (`id`, `user_id`, `external_tx_ref`, `provider`, `total_amo
 (16, NULL, 'RENEWAL-SUB-MWK-1768483846', 'paychangu', 10000.00, 3.57, 'MWK', 'pending', 'paid', '2026-01-15 13:30:49', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":\"mwk-subscription-item\",\"name\":\"Xtrapush Plus Subscription\",\"price\":10000,\"quantity\":1,\"brand\":\"Xtrapush\"}],\"isPreOrder\":false}', '2026-01-15 13:30:49', '2026-01-15 19:41:07'),
 (17, NULL, 'SUB-GBP-1768483849', 'square', 600.00, 0.21, 'GBP', 'pending', 'paid', '2026-01-15 13:30:53', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":\"gbp-subscription-item\",\"name\":\"Xtrapush Plus Subscription (GBP)\",\"price\":600,\"quantity\":1,\"brand\":\"Xtrapush\"}],\"isPreOrder\":false}', '2026-01-15 13:30:53', '2026-01-15 22:44:45'),
 (18, NULL, 'PREORDER-MWK-1768483853', 'paychangu', 25000.00, 8.93, 'MWK', '', 'paid', '2026-01-15 13:30:57', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":\"mwk-preorder-item\",\"name\":\"iPhone 16 Pro (Pre-order)\",\"price\":25000,\"quantity\":1,\"brand\":\"Apple\",\"isPreOrder\":true}],\"isPreOrder\":true}', '2026-01-15 13:30:57', '2026-01-15 19:41:07'),
-(19, NULL, 'PREORDER-GBP-1768483857', 'square', 129900.00, 46.39, 'GBP', '', 'paid', '2026-01-15 13:31:01', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":\"gbp-preorder-item\",\"name\":\"iPhone 16 Pro (Pre-order GBP)\",\"price\":129900,\"quantity\":1,\"brand\":\"Apple\",\"isPreOrder\":true}],\"isPreOrder\":true}', '2026-01-15 13:31:01', '2026-01-15 22:44:45');
+(19, NULL, 'PREORDER-GBP-1768483857', 'square', 129900.00, 46.39, 'GBP', '', 'paid', '2026-01-15 13:31:01', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":\"gbp-preorder-item\",\"name\":\"iPhone 16 Pro (Pre-order GBP)\",\"price\":129900,\"quantity\":1,\"brand\":\"Apple\",\"isPreOrder\":true}],\"isPreOrder\":true}', '2026-01-15 13:31:01', '2026-01-15 22:44:45'),
+(20, NULL, 'TEST-PAYMENT-1768669578_MWK', 'paychangu', 50000.00, 27.78, 'MWK', 'pending', 'paid', '2026-01-17 17:06:22', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":\"test-item-mwk\",\"name\":\"Test Gadget - Malawi Payment\",\"price\":50000,\"quantity\":1,\"brand\":\"TestBrand\"}],\"isPreOrder\":false,\"items_details\":[{\"gadget_id\":null,\"name\":\"Test Gadget - Malawi Payment\",\"brand\":\"TestBrand\",\"model\":\"\",\"image\":\"\",\"quantity\":1,\"unit_price\":50000,\"unit_price_gbp\":0,\"total_price\":50000,\"total_price_gbp\":0}]}', '2026-01-17 17:06:22', '2026-01-17 17:06:22'),
+(21, NULL, 'TEST-PAYMENT-1768669578_GBP', 'square', 10000.00, 10000.00, 'GBP', 'pending', 'paid', '2026-01-17 17:06:26', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":\"test-item-gbp\",\"name\":\"Test Gadget - UK Payment\",\"price\":10000,\"quantity\":1,\"brand\":\"TestBrand\"}],\"isPreOrder\":false,\"items_details\":[{\"gadget_id\":null,\"name\":\"Test Gadget - UK Payment\",\"brand\":\"TestBrand\",\"model\":\"\",\"image\":\"\",\"quantity\":1,\"unit_price\":10000,\"unit_price_gbp\":10000,\"total_price\":10000,\"total_price_gbp\":10000}]}', '2026-01-17 17:06:26', '2026-01-17 17:06:26'),
+(22, NULL, 'DISPLAY-TEST-1768669897', 'paychangu', 15000.00, 8.33, 'MWK', 'pending', 'paid', '2026-01-17 17:11:41', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":1,\"name\":\"iPhone 15 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 15 Pro Max\",\"price\":15000,\"quantity\":1,\"image\":\"https://example.com/iphone15promax.jpg\",\"category\":\"smartphone\",\"description\":\"Latest flagship smartphone\"}],\"isPreOrder\":false,\"items_details\":[{\"gadget_id\":1,\"name\":\"iPhone 15 Pro Max\",\"brand\":\"Apple\",\"model\":\"iPhone 15 Pro Max\",\"image\":\"https://example.com/iphone15promax.jpg\",\"quantity\":1,\"unit_price\":15000,\"unit_price_gbp\":0,\"total_price\":15000,\"total_price_gbp\":0}]}', '2026-01-17 17:11:41', '2026-01-17 17:11:41'),
+(23, NULL, 'RECEIPT-TEST-1768670279', 'paychangu', 12500.00, 6.94, 'MWK', 'pending', 'paid', '2026-01-17 17:18:03', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":1,\"name\":\"Samsung Galaxy S24 Ultra\",\"brand\":\"Samsung\",\"model\":\"Galaxy S24 Ultra\",\"price\":12500,\"quantity\":1,\"image\":\"https://example.com/s24ultra.jpg\",\"category\":\"smartphone\",\"storage\":\"256GB\",\"color\":\"Titanium Black\"}],\"isPreOrder\":false,\"items_details\":[{\"gadget_id\":1,\"name\":\"Samsung Galaxy S24 Ultra\",\"brand\":\"Samsung\",\"model\":\"Galaxy S24 Ultra\",\"image\":\"https://example.com/s24ultra.jpg\",\"quantity\":1,\"unit_price\":12500,\"unit_price_gbp\":0,\"total_price\":12500,\"total_price_gbp\":0}]}', '2026-01-17 17:18:03', '2026-01-17 17:18:03'),
+(24, NULL, 'LIVE-TEST-1768670383', 'paychangu', 15000.00, 8.33, 'MWK', 'pending', 'paid', '2026-01-17 17:19:47', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":1,\"name\":\"iPhone 15 Pro\",\"brand\":\"Apple\",\"model\":\"iPhone 15 Pro\",\"price\":15000,\"quantity\":1,\"image\":\"https://example.com/iphone15pro.jpg\",\"category\":\"smartphone\",\"storage\":\"128GB\",\"color\":\"Natural Titanium\"}],\"isPreOrder\":false,\"items_details\":[{\"gadget_id\":1,\"name\":\"iPhone 15 Pro\",\"brand\":\"Apple\",\"model\":\"iPhone 15 Pro\",\"image\":\"https://example.com/iphone15pro.jpg\",\"quantity\":1,\"unit_price\":15000,\"unit_price_gbp\":0,\"total_price\":15000,\"total_price_gbp\":0}]}', '2026-01-17 17:19:47', '2026-01-17 17:19:47'),
+(25, NULL, 'REAL-TEST-1768670482', 'paychangu', 17500.00, 9.72, 'MWK', 'pending', 'paid', '2026-01-17 17:21:26', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":1,\"name\":\"Samsung Galaxy S24\",\"brand\":\"Samsung\",\"model\":\"Galaxy S24\",\"price\":17500,\"quantity\":1,\"image\":\"https://sparkle-pro.co.uk/api/images/s24.jpg\",\"category\":\"smartphone\",\"storage\":\"256GB\",\"color\":\"Phantom Black\"}],\"isPreOrder\":false,\"items_details\":[{\"gadget_id\":1,\"name\":\"Samsung Galaxy S24\",\"brand\":\"Samsung\",\"model\":\"Galaxy S24\",\"image\":\"https://sparkle-pro.co.uk/api/images/s24.jpg\",\"quantity\":1,\"unit_price\":17500,\"unit_price_gbp\":0,\"total_price\":17500,\"total_price_gbp\":0}]}', '2026-01-17 17:21:26', '2026-01-17 17:21:26'),
+(26, NULL, 'FRONTEND-TEST-1768671007', 'paychangu', 10000.00, 5.56, 'MWK', 'pending', 'paid', '2026-01-17 17:30:12', '', '', '{\"paymentType\":\"one_off\",\"installmentPlan\":null,\"items\":[{\"id\":1,\"name\":\"Test Item\",\"price\":10000,\"quantity\":1}],\"isPreOrder\":false,\"items_details\":[{\"gadget_id\":1,\"name\":\"Test Item\",\"brand\":\"\",\"model\":\"\",\"image\":\"\",\"quantity\":1,\"unit_price\":10000,\"unit_price_gbp\":0,\"total_price\":10000,\"total_price_gbp\":0}]}', '2026-01-17 17:30:12', '2026-01-17 17:30:12');
 
 -- --------------------------------------------------------
 
@@ -5365,7 +5963,14 @@ INSERT INTO `order_items` (`id`, `order_id`, `gadget_id`, `variant_id`, `seller_
 (16, 16, NULL, NULL, NULL, 'admin_gadget', NULL, 1, 10000.00, 3.57, 10000.00, 3.57, NULL, '2026-01-15 13:30:49'),
 (17, 17, NULL, NULL, NULL, 'admin_gadget', NULL, 1, 600.00, 0.33, 600.00, 0.33, NULL, '2026-01-15 13:30:53'),
 (18, 18, NULL, NULL, NULL, 'admin_gadget', NULL, 1, 25000.00, 8.93, 25000.00, 8.93, NULL, '2026-01-15 13:30:57'),
-(19, 19, NULL, NULL, NULL, 'admin_gadget', NULL, 1, 129900.00, 72.17, 129900.00, 72.17, NULL, '2026-01-15 13:31:01');
+(19, 19, NULL, NULL, NULL, 'admin_gadget', NULL, 1, 129900.00, 72.17, 129900.00, 72.17, NULL, '2026-01-15 13:31:01'),
+(20, 20, NULL, NULL, NULL, 'admin_gadget', NULL, 1, 50000.00, 0.00, 50000.00, 0.00, NULL, '2026-01-17 17:06:22'),
+(21, 21, NULL, NULL, NULL, 'admin_gadget', NULL, 1, 10000.00, 10000.00, 10000.00, 10000.00, NULL, '2026-01-17 17:06:26'),
+(22, 22, 1, NULL, NULL, 'admin_gadget', NULL, 1, 15000.00, 0.00, 15000.00, 0.00, NULL, '2026-01-17 17:11:41'),
+(23, 23, 1, NULL, NULL, 'admin_gadget', '256GB', 1, 12500.00, 0.00, 12500.00, 0.00, NULL, '2026-01-17 17:18:03'),
+(24, 24, 1, NULL, NULL, 'admin_gadget', '128GB', 1, 15000.00, 0.00, 15000.00, 0.00, NULL, '2026-01-17 17:19:47'),
+(25, 25, 1, NULL, NULL, 'admin_gadget', '256GB', 1, 17500.00, 0.00, 17500.00, 0.00, NULL, '2026-01-17 17:21:26'),
+(26, 26, 1, NULL, NULL, 'admin_gadget', NULL, 1, 10000.00, 0.00, 10000.00, 0.00, NULL, '2026-01-17 17:30:12');
 
 -- --------------------------------------------------------
 
@@ -5390,6 +5995,27 @@ CREATE TABLE `password_resets` (
 
 INSERT INTO `password_resets` (`id`, `user_id`, `email`, `token`, `expires_at`, `used`, `created_at`, `used_at`) VALUES
 (1, NULL, 'admin@itsxtrapush.com', '8fb02874884eb4c83a16d3df34ba563da3d1539dfccfbcce11f1847828756e9f', '2025-10-19 14:33:38', 0, '2025-10-19 13:33:38', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `professional_gadget_pricing`
+-- (See below for the actual view)
+--
+CREATE TABLE `professional_gadget_pricing` (
+`id` int(11)
+,`name` varchar(255)
+,`category` enum('smartphone','laptop','gaming','audio','wearable','accessories','tablet','productivity','desktop')
+,`brand` varchar(100)
+,`model` varchar(150)
+,`current_price_mwk` decimal(10,2)
+,`current_price_gbp` decimal(10,2)
+,`available_stock` decimal(32,0)
+,`active_variants` bigint(21)
+,`available_variants` bigint(21)
+,`created_at` timestamp
+,`updated_at` timestamp
+);
 
 -- --------------------------------------------------------
 
@@ -5658,7 +6284,8 @@ CREATE TABLE `subscription_history` (
 
 INSERT INTO `subscription_history` (`id`, `user_uid`, `subscription_id`, `action`, `old_status`, `new_status`, `amount_paid`, `currency`, `notes`, `created_at`) VALUES
 (1, 'test-user-456', 'SUB-INITIAL-AB15501B7587-1768480367', '', NULL, 'PENDING', 100.00, 'GBP', 'PayChangu subscription checkout created', '2026-01-15 12:32:47'),
-(2, 'prod-user-456', 'SUB-INITIAL-2EA9757BAD96-1768480373', '', NULL, 'PENDING', 100.00, 'GBP', 'PayChangu subscription checkout created', '2026-01-15 12:32:54');
+(2, 'prod-user-456', 'SUB-INITIAL-2EA9757BAD96-1768480373', '', NULL, 'PENDING', 100.00, 'GBP', 'PayChangu subscription checkout created', '2026-01-15 12:32:54'),
+(3, 'admin_system_default', 'RENEWAL-0691CEEA431A-1768672801', 'CREATED', 'ACTIVE', 'PENDING', NULL, 'GBP', 'PayChangu renewal checkout created', '2026-01-17 18:00:02');
 
 -- --------------------------------------------------------
 
@@ -5812,21 +6439,25 @@ CREATE TABLE `users` (
   `subscription_renewal_date` date DEFAULT NULL COMMENT 'Next renewal date (calculated as start_date + interval)',
   `subscription_grace_period_end` datetime DEFAULT NULL COMMENT 'Grace period end date for failed payments - if passed, suspend',
   `subscription_pending_tx_ref` varchar(255) DEFAULT NULL,
-  `last_renewal_reminder_sent` datetime DEFAULT NULL COMMENT 'Track when last renewal reminder was sent'
+  `last_renewal_reminder_sent` datetime DEFAULT NULL COMMENT 'Track when last renewal reminder was sent',
+  `subscription_linked_device_id` int(11) DEFAULT NULL COMMENT 'ID of device linked to subscription',
+  `subscription_linked_device_name` varchar(255) DEFAULT NULL COMMENT 'Name of device linked to subscription',
+  `subscription_device_linked_date` timestamp NULL DEFAULT NULL COMMENT 'When device was linked',
+  `subscription_device_linked_by` enum('AUTO_CHECKOUT','AUTO_RECENT','MANUAL') DEFAULT 'MANUAL' COMMENT 'How device was linked'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 --
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `uid`, `email`, `password_hash`, `full_name`, `town`, `address`, `postcode`, `phone`, `dob`, `user_role`, `signup_method`, `photo_url`, `is_active`, `email_verified`, `square_customer_id`, `subscription_id`, `subscription_status`, `subscription_tier`, `subscription_active`, `subscription_updated_at`, `seller_verified`, `created_at`, `updated_at`, `google_uid`, `subscription_plan_id`, `subscription_payment_gateway`, `subscription_start_date`, `subscription_end_date`, `subscription_renewal_date`, `subscription_grace_period_end`, `subscription_pending_tx_ref`, `last_renewal_reminder_sent`) VALUES
-(1, 'admin_system_default', 'admin@itsxtrapush.com', 'AdminXP2025?', 'Conrad Zikomo Kaliyapa', 'Corby, UK', '1 Deene Close, Corby, UK\n1 Deene Close', 'NN171HY', '+265993244175', NULL, 'admin', 'email_password', NULL, 1, 1, NULL, NULL, 'ACTIVE', 'plus', 1, '2026-01-15 15:22:24', 0, '2025-10-15 21:09:58', '2026-01-15 17:02:14', NULL, NULL, 'paychangu', '2025-12-21 15:22:24', NULL, '2026-01-20', NULL, NULL, '2026-01-15 17:02:14'),
-(2, 'firebase_uid_demo1', 'demo.user@xtrapush.com', NULL, 'Demo User', 'London', '123 Tech Street, London', 'SW1A 1AA', '+447700900123', NULL, 'buyer', 'google', NULL, 1, 0, NULL, NULL, NULL, NULL, 0, NULL, 0, '2025-10-15 21:09:58', '2025-10-15 21:09:58', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(3, 'firebase_uid_demo2', 'seller.test@xtrapush.com', NULL, 'Test Seller', 'Manchester', '456 Innovation Avenue, Manchester', 'M1 1AA', '+447700900456', NULL, 'seller', 'email_password', NULL, 1, 0, NULL, NULL, NULL, NULL, 0, NULL, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(4, 'firebase_uid_demo3', 'sample.buyer@xtrapush.com', NULL, 'Sample Buyer', 'Birmingham', '789 Digital Street, Birmingham', 'B1 1AA', '+447700900789', NULL, 'buyer', 'google', NULL, 1, 0, NULL, NULL, NULL, NULL, 0, NULL, 0, '2025-10-15 21:09:58', '2025-10-15 21:09:58', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(5, 'local:testqa-1762180976', 'qa+1762180976@itsxtrapush.com', '$2y$10$a1R7dyRyzas4MLFUHgAq4Oi2StNgacxwyGP/GPW1Z1yzOUjEC8AOK', 'QA Normal', '', '', '', '', NULL, 'buyer', 'email_password', NULL, 1, 0, NULL, NULL, NULL, NULL, 0, NULL, 0, '2025-11-03 14:42:57', '2025-11-03 14:43:50', 'google:testqa-1762181012', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(6, 'google:testqa-1762181012', 'qa-google+1762181012@itsxtrapush.com', NULL, 'QA Google', '', '', '', '', NULL, 'buyer', 'google', NULL, 1, 0, NULL, NULL, NULL, NULL, 0, NULL, 0, '2025-11-03 14:43:32', '2025-11-03 14:43:32', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(7, 'IlnZG6xNyfh0m1MZyzBJ6B5FYyf1', 'conradzikomo@gmail.com', NULL, 'Conrad Kaliyapa', 'Corby', '1 Deene Close', 'NN17 1HY', '+447506369609', NULL, 'buyer', 'google', NULL, 1, 0, NULL, NULL, 'ACTIVE', 'plus', 1, '2026-01-15 15:36:24', 0, '2026-01-05 13:16:35', '2026-01-15 17:02:14', 'IlnZG6xNyfh0m1MZyzBJ6B5FYyf1', NULL, 'square', '2025-12-16 15:22:24', NULL, '2026-02-15', NULL, NULL, '2026-01-15 17:02:14');
+INSERT INTO `users` (`id`, `uid`, `email`, `password_hash`, `full_name`, `town`, `address`, `postcode`, `phone`, `dob`, `user_role`, `signup_method`, `photo_url`, `is_active`, `email_verified`, `square_customer_id`, `subscription_id`, `subscription_status`, `subscription_tier`, `subscription_active`, `subscription_updated_at`, `seller_verified`, `created_at`, `updated_at`, `google_uid`, `subscription_plan_id`, `subscription_payment_gateway`, `subscription_start_date`, `subscription_end_date`, `subscription_renewal_date`, `subscription_grace_period_end`, `subscription_pending_tx_ref`, `last_renewal_reminder_sent`, `subscription_linked_device_id`, `subscription_linked_device_name`, `subscription_device_linked_date`, `subscription_device_linked_by`) VALUES
+(1, 'admin_system_default', 'admin@itsxtrapush.com', 'AdminXP2025?', 'Conrad Zikomo Kaliyapa', 'Corby, UK', '1 Deene Close, Corby, UK\n1 Deene Close', 'NN171HY', '+265993244175', NULL, 'admin', 'email_password', NULL, 1, 1, NULL, NULL, 'ACTIVE', 'plus', 1, '2026-01-15 15:22:24', 0, '2025-10-15 21:09:58', '2026-01-17 18:00:02', NULL, NULL, 'paychangu', '2025-12-21 15:22:24', NULL, '2026-01-20', NULL, NULL, '2026-01-17 18:00:02', NULL, NULL, NULL, 'MANUAL'),
+(2, 'firebase_uid_demo1', 'demo.user@xtrapush.com', NULL, 'Demo User', 'London', '123 Tech Street, London', 'SW1A 1AA', '+447700900123', NULL, 'buyer', 'google', NULL, 1, 0, NULL, NULL, NULL, NULL, 0, NULL, 0, '2025-10-15 21:09:58', '2025-10-15 21:09:58', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'MANUAL'),
+(3, 'firebase_uid_demo2', 'seller.test@xtrapush.com', NULL, 'Test Seller', 'Manchester', '456 Innovation Avenue, Manchester', 'M1 1AA', '+447700900456', NULL, 'seller', 'email_password', NULL, 1, 0, NULL, NULL, NULL, NULL, 0, NULL, 1, '2025-10-15 21:09:58', '2025-10-15 21:09:58', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'MANUAL'),
+(4, 'firebase_uid_demo3', 'sample.buyer@xtrapush.com', NULL, 'Sample Buyer', 'Birmingham', '789 Digital Street, Birmingham', 'B1 1AA', '+447700900789', NULL, 'buyer', 'google', NULL, 1, 0, NULL, NULL, NULL, NULL, 0, NULL, 0, '2025-10-15 21:09:58', '2025-10-15 21:09:58', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'MANUAL'),
+(5, 'local:testqa-1762180976', 'qa+1762180976@itsxtrapush.com', '$2y$10$a1R7dyRyzas4MLFUHgAq4Oi2StNgacxwyGP/GPW1Z1yzOUjEC8AOK', 'QA Normal', '', '', '', '', NULL, 'buyer', 'email_password', NULL, 1, 0, NULL, NULL, NULL, NULL, 0, NULL, 0, '2025-11-03 14:42:57', '2025-11-03 14:43:50', 'google:testqa-1762181012', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'MANUAL'),
+(6, 'google:testqa-1762181012', 'qa-google+1762181012@itsxtrapush.com', NULL, 'QA Google', '', '', '', '', NULL, 'buyer', 'google', NULL, 1, 0, NULL, NULL, NULL, NULL, 0, NULL, 0, '2025-11-03 14:43:32', '2025-11-03 14:43:32', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'MANUAL'),
+(7, 'IlnZG6xNyfh0m1MZyzBJ6B5FYyf1', 'conradzikomo@gmail.com', NULL, 'Conrad Kaliyapa', 'Corby', '1 Deene Close', 'NN17 1HY', '+447506369609', NULL, 'buyer', 'google', NULL, 1, 0, NULL, NULL, 'ACTIVE', 'plus', 1, '2026-01-15 15:36:24', 0, '2026-01-05 13:16:35', '2026-01-15 17:02:14', 'IlnZG6xNyfh0m1MZyzBJ6B5FYyf1', NULL, 'square', '2025-12-16 15:22:24', NULL, '2026-02-15', NULL, NULL, '2026-01-15 17:02:14', NULL, NULL, NULL, 'MANUAL');
 
 -- --------------------------------------------------------
 
@@ -5987,7 +6618,16 @@ ALTER TABLE `gadgets`
   ADD KEY `idx_in_stock` (`in_stock`),
   ADD KEY `idx_active` (`is_active`),
   ADD KEY `idx_condition` (`condition_status`),
-  ADD KEY `idx_has_3d_model` (`has_3d_model`);
+  ADD KEY `idx_has_3d_model` (`has_3d_model`),
+  ADD KEY `idx_gadgets_has_variants` (`has_variants`,`is_active`);
+
+--
+-- Indexes for table `gadget_pricing_audit`
+--
+ALTER TABLE `gadget_pricing_audit`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_gadget_id` (`gadget_id`),
+  ADD KEY `idx_created_at` (`created_at`);
 
 --
 -- Indexes for table `gadget_variants`
@@ -6000,7 +6640,8 @@ ALTER TABLE `gadget_variants`
   ADD KEY `idx_storage` (`storage`),
   ADD KEY `idx_color` (`color`),
   ADD KEY `idx_condition` (`condition_status`),
-  ADD KEY `idx_active` (`is_active`);
+  ADD KEY `idx_active` (`is_active`),
+  ADD KEY `idx_gadget_variants_active_stock` (`gadget_id`,`is_active`,`stock_quantity`);
 
 --
 -- Indexes for table `installment_applications`
@@ -6215,7 +6856,11 @@ ALTER TABLE `users`
   ADD KEY `idx_subscription_active` (`subscription_active`),
   ADD KEY `idx_subscription_renewal` (`subscription_active`,`subscription_status`,`subscription_renewal_date`),
   ADD KEY `idx_subscription_grace` (`subscription_grace_period_end`,`subscription_status`),
-  ADD KEY `idx_dob` (`dob`);
+  ADD KEY `idx_dob` (`dob`),
+  ADD KEY `idx_subscription_renewal_date` (`subscription_renewal_date`),
+  ADD KEY `idx_subscription_grace_period` (`subscription_grace_period_end`),
+  ADD KEY `idx_subscription_linked_device` (`subscription_linked_device_id`),
+  ADD KEY `idx_subscription_payment_gateway` (`subscription_payment_gateway`);
 
 --
 -- Indexes for table `user_notifications`
@@ -6233,13 +6878,13 @@ ALTER TABLE `user_notifications`
 -- AUTO_INCREMENT for table `analytics_events`
 --
 ALTER TABLE `analytics_events`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=823;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=990;
 
 --
 -- AUTO_INCREMENT for table `analytics_page_views`
 --
 ALTER TABLE `analytics_page_views`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3498;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3795;
 
 --
 -- AUTO_INCREMENT for table `analytics_sessions`
@@ -6290,10 +6935,16 @@ ALTER TABLE `gadgets`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
 
 --
+-- AUTO_INCREMENT for table `gadget_pricing_audit`
+--
+ALTER TABLE `gadget_pricing_audit`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `gadget_variants`
 --
 ALTER TABLE `gadget_variants`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `installment_applications`
@@ -6329,13 +6980,13 @@ ALTER TABLE `market_pricing_cache`
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT for table `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT for table `password_resets`
@@ -6389,7 +7040,7 @@ ALTER TABLE `subscription_events`
 -- AUTO_INCREMENT for table `subscription_history`
 --
 ALTER TABLE `subscription_history`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `swap_transactions`
@@ -6429,6 +7080,24 @@ ALTER TABLE `user_notifications`
 DROP TABLE IF EXISTS `available_gadget_variants`;
 
 CREATE ALGORITHM=UNDEFINED DEFINER=`xuser`@`%` SQL SECURITY DEFINER VIEW `available_gadget_variants`  AS SELECT `gv`.`gadget_id` AS `gadget_id`, `gv`.`id` AS `variant_id`, `gv`.`color` AS `color`, `gv`.`color_hex` AS `color_hex`, `gv`.`storage` AS `storage`, `gv`.`condition_status` AS `condition_status`, `gv`.`price` AS `price`, `gv`.`price_gbp` AS `price_gbp`, `gv`.`stock_quantity` AS `stock_quantity`, `gv`.`sku` AS `sku`, `gv`.`is_active` AS `is_active`, `g`.`name` AS `gadget_name`, `g`.`brand` AS `brand`, `g`.`model` AS `model`, `g`.`category` AS `category` FROM (`gadget_variants` `gv` join `gadgets` `g` on(`g`.`id` = `gv`.`gadget_id`)) WHERE `gv`.`is_active` = 1 AND `gv`.`stock_quantity` > 0 ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `gadget_variant_summary`
+--
+DROP TABLE IF EXISTS `gadget_variant_summary`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`xuser`@`%` SQL SECURITY DEFINER VIEW `gadget_variant_summary`  AS SELECT `g`.`id` AS `gadget_id`, `g`.`name` AS `name`, `g`.`category` AS `category`, `g`.`brand` AS `brand`, `g`.`model` AS `model`, `g`.`condition_status` AS `condition_status`, `g`.`in_stock` AS `in_stock`, `g`.`is_active` AS `is_active`, coalesce(min(case when `gv`.`is_active` = 1 and `gv`.`stock_quantity` > 0 then `gv`.`price` end),0) AS `effective_price`, coalesce(min(case when `gv`.`is_active` = 1 and `gv`.`stock_quantity` > 0 and `gv`.`price_gbp` is not null then `gv`.`price_gbp` end),0) AS `effective_price_gbp`, coalesce(sum(case when `gv`.`is_active` = 1 then `gv`.`stock_quantity` else 0 end),0) AS `total_stock`, count(case when `gv`.`is_active` = 1 then 1 end) AS `active_variant_count`, count(case when `gv`.`is_active` = 1 and `gv`.`stock_quantity` > 0 then 1 end) AS `available_variant_count` FROM (`gadgets` `g` left join `gadget_variants` `gv` on(`g`.`id` = `gv`.`gadget_id`)) WHERE `g`.`is_active` = 1 GROUP BY `g`.`id`, `g`.`name`, `g`.`category`, `g`.`brand`, `g`.`model`, `g`.`condition_status`, `g`.`in_stock`, `g`.`is_active` ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `professional_gadget_pricing`
+--
+DROP TABLE IF EXISTS `professional_gadget_pricing`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`xuser`@`%` SQL SECURITY DEFINER VIEW `professional_gadget_pricing`  AS SELECT `g`.`id` AS `id`, `g`.`name` AS `name`, `g`.`category` AS `category`, `g`.`brand` AS `brand`, `g`.`model` AS `model`, coalesce(min(case when `gv`.`is_active` = 1 and `gv`.`stock_quantity` > 0 then `gv`.`price` end),0) AS `current_price_mwk`, coalesce(min(case when `gv`.`is_active` = 1 and `gv`.`stock_quantity` > 0 and `gv`.`price_gbp` is not null then `gv`.`price_gbp` end),0) AS `current_price_gbp`, coalesce(sum(case when `gv`.`is_active` = 1 then `gv`.`stock_quantity` else 0 end),0) AS `available_stock`, count(case when `gv`.`is_active` = 1 then 1 end) AS `active_variants`, count(case when `gv`.`is_active` = 1 and `gv`.`stock_quantity` > 0 then 1 end) AS `available_variants`, `g`.`created_at` AS `created_at`, `g`.`updated_at` AS `updated_at` FROM (`gadgets` `g` left join `gadget_variants` `gv` on(`g`.`id` = `gv`.`gadget_id`)) WHERE `g`.`is_active` = 1 GROUP BY `g`.`id`, `g`.`name`, `g`.`category`, `g`.`brand`, `g`.`model`, `g`.`created_at`, `g`.`updated_at` ;
 
 -- --------------------------------------------------------
 

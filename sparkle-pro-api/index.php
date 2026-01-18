@@ -212,21 +212,33 @@ function gadgets_list() {
         if ($brand) { $conds[] = "brand = ?"; $params[] = $brand; $types .= 's'; }
         if ($minPrice !== null || $maxPrice !== null) {
             // For price filtering, we need to check both main gadget prices AND variant prices
-            // Create a subquery to get the lowest price for each gadget (either main or variant)
-            $priceSubquery = "(SELECT 
-                CASE 
-                    WHEN gv.id IS NOT NULL THEN 
-                        LEAST(
-                            COALESCE(MIN(CASE WHEN gv.is_active = 1 THEN gv.$priceField END), g.$priceField),
-                            g.$priceField
-                        )
-                    ELSE g.$priceField 
-                END as effective_price
-                FROM gadgets g 
-                LEFT JOIN gadget_variants gv ON g.id = gv.gadget_id AND gv.is_active = 1
-                WHERE g.id = gadgets.id
-                GROUP BY g.id
-            )";
+            // Create a subquery to get the lowest effective price for each gadget
+            if ($currency === 'GBP') {
+                // For GBP, use lowest variant price GBP or main GBP price
+                $priceSubquery = "(SELECT 
+                    COALESCE(
+                        MIN(CASE WHEN gv.is_active = 1 AND gv.price_gbp IS NOT NULL THEN gv.price_gbp END),
+                        g.price_gbp,
+                        CASE WHEN g.price > 0 THEN g.price / 2358 ELSE 0 END
+                    ) as effective_price
+                    FROM gadgets g 
+                    LEFT JOIN gadget_variants gv ON g.id = gv.gadget_id AND gv.is_active = 1
+                    WHERE g.id = gadgets.id
+                    GROUP BY g.id
+                )";
+            } else {
+                // For MWK, use lowest variant price or main price
+                $priceSubquery = "(SELECT 
+                    COALESCE(
+                        MIN(CASE WHEN gv.is_active = 1 THEN gv.price END),
+                        g.price
+                    ) as effective_price
+                    FROM gadgets g 
+                    LEFT JOIN gadget_variants gv ON g.id = gv.gadget_id AND gv.is_active = 1
+                    WHERE g.id = gadgets.id
+                    GROUP BY g.id
+                )";
+            }
             
             if ($minPrice !== null) { 
                 $conds[] = "$priceSubquery >= ?"; 
@@ -4732,6 +4744,73 @@ function createAdminGadget() {
     }
 }
 
+/** Get single admin gadget by ID */
+function getAdminGadgetById($gadgetId) {
+    try {
+        $db = DatabaseConnection::getInstance();
+        $conn = $db->getConnection();
+        if (!$conn) { json_error('Database connection failed', 500); }
+        
+        $adminUid = $_GET['adminUid'] ?? null;
+        if (!$adminUid) { http_response_code(400); echo json_encode(['success' => false,'error' => 'Missing required field: adminUid']); return; }
+        
+        $admin = getAdminByUid($conn, $adminUid);
+        if (!$admin) { http_response_code(403); echo json_encode(['success' => false,'error' => 'Admin permissions required']); return; }
+        
+        $sql = "SELECT id, name, description, price, monthly_price, price_gbp, monthly_price_gbp, image_url, category, brand, model, condition_status, specifications, in_stock, stock_quantity, has_3d_model, model3d_path, created_at, updated_at FROM gadgets WHERE id = ? AND is_active = 1 LIMIT 1";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) { throw new Exception('Prepare failed: ' . $conn->error); }
+        
+        $stmt->bind_param('i', $gadgetId);
+        if (!$stmt->execute()) { throw new Exception('Execute failed: ' . $stmt->error); }
+        
+        $result = $stmt->get_result();
+        $gadget = $result->fetch_assoc();
+        $stmt->close();
+        
+        if (!$gadget) { 
+            http_response_code(404); 
+            echo json_encode(['success' => false,'error' => 'Gadget not found']); 
+            return; 
+        }
+        
+        // Parse specifications JSON
+        $specs = $gadget['specifications'] ? json_decode($gadget['specifications'], true) : [];
+        
+        $response = [
+            'success' => true,
+            'data' => [
+                'id' => (int)$gadget['id'],
+                'name' => $gadget['name'],
+                'description' => $gadget['description'],
+                'price' => (float)$gadget['price'],
+                'monthlyPrice' => $gadget['monthly_price'] !== null ? (float)$gadget['monthly_price'] : null,
+                'priceGbp' => $gadget['price_gbp'] !== null ? (float)$gadget['price_gbp'] : null,
+                'monthlyPriceGbp' => $gadget['monthly_price_gbp'] !== null ? (float)$gadget['monthly_price_gbp'] : null,
+                'image' => $gadget['image_url'],
+                'category' => $gadget['category'],
+                'brand' => $gadget['brand'],
+                'model' => $gadget['model'],
+                'condition' => $gadget['condition_status'],
+                'conditionStatus' => $gadget['condition_status'],
+                'specifications' => $specs,
+                'inStock' => (bool)$gadget['in_stock'],
+                'stockQuantity' => (int)$gadget['stock_quantity'],
+                'has3dModel' => (bool)$gadget['has_3d_model'],
+                'model3dPath' => $gadget['model3d_path'],
+                'createdAt' => $gadget['created_at'],
+                'updatedAt' => $gadget['updated_at']
+            ]
+        ];
+        
+        echo json_encode($response);
+    } catch (Exception $e) {
+        error_log('❌ Error in getAdminGadgetById: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false,'error' => 'Failed to fetch gadget']);
+    }
+}
+
 /** Update admin gadget */
 function updateAdminGadget($gadgetId) {
     try {
@@ -4742,28 +4821,120 @@ function updateAdminGadget($gadgetId) {
         if (!$data || !isset($data['adminUid'])) { http_response_code(400); echo json_encode(['success' => false,'error' => 'Missing required field: adminUid']); return; }
         $admin = getAdminByUid($conn, $data['adminUid']);
         if (!$admin) { http_response_code(403); echo json_encode(['success' => false,'error' => 'Admin permissions required']); return; }
-        $sql = "UPDATE gadgets SET name = ?, description = ?, price = ?, monthly_price = NULLIF(?, 0), price_gbp = NULLIF(?, 0), monthly_price_gbp = NULLIF(?, 0), image_url = ?, category = ?, brand = ?, model = ?, condition_status = ?, specifications = ?, in_stock = ?, stock_quantity = ?, updated_at = NOW() WHERE id = ? AND is_active = 1";
+        
+        // Build update query avoiding price fields due to triggers
+        $updates = [];
+        $params = [];
+        $types = '';
+        
+        // Handle each field individually
+        if (isset($data['name'])) {
+            $updates[] = 'name = ?';
+            $params[] = $data['name'];
+            $types .= 's';
+        }
+        
+        if (isset($data['description'])) {
+            $updates[] = 'description = ?';
+            $params[] = $data['description'];
+            $types .= 's';
+        }
+        
+        if (isset($data['image']) || isset($data['imageUrl'])) {
+            $updates[] = 'image_url = ?';
+            $params[] = isset($data['image']) ? $data['image'] : $data['imageUrl'];
+            $types .= 's';
+        }
+        
+        if (isset($data['category'])) {
+            $updates[] = 'category = ?';
+            $params[] = $data['category'];
+            $types .= 's';
+        }
+        
+        if (isset($data['brand'])) {
+            $updates[] = 'brand = ?';
+            $params[] = $data['brand'];
+            $types .= 's';
+        }
+        
+        if (isset($data['model'])) {
+            $updates[] = 'model = ?';
+            $params[] = $data['model'];
+            $types .= 's';
+        }
+        
+        if (isset($data['condition']) || isset($data['conditionStatus'])) {
+            $updates[] = 'condition_status = ?';
+            $params[] = isset($data['condition']) ? $data['condition'] : $data['conditionStatus'];
+            $types .= 's';
+        }
+        
+        if (isset($data['specifications'])) {
+            $updates[] = 'specifications = ?';
+            $specValue = is_array($data['specifications']) ? json_encode($data['specifications']) : $data['specifications'];
+            $params[] = $specValue;
+            $types .= 's';
+        }
+        
+        if (isset($data['inStock'])) {
+            $updates[] = 'in_stock = ?';
+            $params[] = (int)$data['inStock'];
+            $types .= 'i';
+        }
+        
+        if (isset($data['stockQuantity'])) {
+            $updates[] = 'stock_quantity = ?';
+            $params[] = (int)$data['stockQuantity'];
+            $types .= 'i';
+        }
+        
+        // Always update timestamp
+        $updates[] = 'updated_at = NOW()';
+        
+        if (empty($updates)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'No valid fields to update']);
+            return;
+        }
+        
+        $sql = 'UPDATE gadgets SET ' . implode(', ', $updates) . ' WHERE id = ? AND is_active = 1';
         $stmt = $conn->prepare($sql);
-        if (!$stmt) { throw new Exception('Prepare failed: ' . $conn->error); }
-        $monthlyPrice = isset($data['monthlyPrice']) && is_numeric($data['monthlyPrice']) ? (float)$data['monthlyPrice'] : 0.0;
-        $priceGbp = isset($data['priceGbp']) && is_numeric($data['priceGbp']) ? (float)$data['priceGbp'] : null;
-        $monthlyPriceGbp = isset($data['monthlyPriceGbp']) && is_numeric($data['monthlyPriceGbp']) ? (float)$data['monthlyPriceGbp'] : 0.0;
-        $imageUrl = $data['image'] ?? null;
-        $specs = isset($data['specifications']) ? json_encode($data['specifications']) : json_encode([]);
-        $inStock = isset($data['inStock']) ? (int)$data['inStock'] : 1;
-        $stockQty = isset($data['stockQuantity']) ? (int)$data['stockQuantity'] : 0;
-        $conditionStatus = isset($data['condition']) ? $data['condition'] : (isset($data['conditionStatus']) ? $data['conditionStatus'] : 'new');
-        $stmt->bind_param('ssddddsssssiii',
-            $data['name'],$data['description'],$data['price'],$monthlyPrice,$priceGbp,$monthlyPriceGbp,$imageUrl,$data['category'],$data['brand'],$data['model'],$conditionStatus,$specs,$inStock,$stockQty,$gadgetId
-        );
-        if (!$stmt->execute()) { throw new Exception('Execute failed: ' . $stmt->error); }
-        if ($stmt->affected_rows > 0) { echo json_encode(['success' => true,'message' => 'Gadget updated successfully']); }
-        else { http_response_code(404); echo json_encode(['success' => false,'error' => 'Gadget not found or no changes made']); }
+        if (!$stmt) { 
+            error_log('Prepare failed: ' . $conn->error);
+            throw new Exception('Prepare failed: ' . $conn->error); 
+        }
+        
+        // Add gadget ID parameter
+        $params[] = $gadgetId;
+        $types .= 'i';
+        
+        // Bind parameters
+        if (!empty($params)) {
+            $refs = [];
+            foreach($params as $key => $value) {
+                $refs[$key] = &$params[$key];
+            }
+            array_unshift($refs, $types);
+            call_user_func_array([$stmt, 'bind_param'], $refs);
+        }
+        
+        if (!$stmt->execute()) { 
+            error_log('Execute failed: ' . $stmt->error);
+            throw new Exception('Execute failed: ' . $stmt->error); 
+        }
+        
+        if ($stmt->affected_rows > 0) { 
+            echo json_encode(['success' => true,'message' => 'Gadget updated successfully']); 
+        } else { 
+            http_response_code(404); 
+            echo json_encode(['success' => false,'error' => 'Gadget not found or no changes made']); 
+        }
         $stmt->close();
     } catch (Exception $e) {
         error_log('❌ Error in updateAdminGadget: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['success' => false,'error' => 'Failed to update gadget']);
+        echo json_encode(['success' => false,'error' => 'Failed to update gadget: ' . $e->getMessage()]);
     }
 }
 
@@ -6775,6 +6946,7 @@ try {
 
     // Admin: gadgets
     if ($method === 'POST' && preg_match('#^/admin/gadgets/?$#', $path)) { createAdminGadget(); exit; }
+    if ($method === 'GET' && preg_match('#^/admin/gadgets/(\d+)/?$#', $path, $m)) { getAdminGadgetById((int)$m[1]); exit; }
     if ($method === 'PUT' && preg_match('#^/admin/gadgets/(\d+)/?$#', $path, $m)) { updateAdminGadget((int)$m[1]); exit; }
     if ($method === 'DELETE' && preg_match('#^/admin/gadgets/(\d+)/?$#', $path, $m)) { deleteAdminGadget((int)$m[1]); exit; }
 

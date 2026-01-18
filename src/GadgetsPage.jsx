@@ -107,18 +107,26 @@ const GadgetsPage = ({ category: propCategory }) => {
               ? (item?.price_gbp ?? item?.priceGbp ?? item?.price)
               : item?.price;
             const n = typeof p === 'string' ? Number(p.replace(/[^0-9.]/g, '')) : Number(p);
-            return Number.isFinite(n) ? n : 0;
+            return Number.isFinite(n) && n > 0 ? n : null; // Return null for invalid prices
           };
-          const prices = res.data.map(priceOf).filter((n) => Number.isFinite(n) && n > 0);
+          const prices = res.data.map(priceOf).filter((n) => n !== null);
           if (prices.length > 0) {
             const max = Math.max(...prices);
+            console.log(`📊 Global max price calculated: ${max} (${userCurrency}) from ${prices.length} valid prices`);
             setGlobalMaxPrice(max);
+          } else {
+            console.log('⚠️ No valid prices found for global max calculation');
+            // Set a reasonable default based on currency
+            setGlobalMaxPrice(userCurrency === 'GBP' ? 2000 : 2000000);
           }
+        } else {
+          console.log('⚠️ Failed to fetch gadgets for max price calculation');
+          setGlobalMaxPrice(userCurrency === 'GBP' ? 2000 : 2000000);
         }
       } catch (e) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.debug('Failed to compute global max price:', e?.message || e);
-        }
+        console.error('❌ Error calculating global max price:', e?.message || e);
+        // Set fallback on error
+        setGlobalMaxPrice(userCurrency === 'GBP' ? 2000 : 2000000);
       }
     };
     fetchGlobalMax();
@@ -128,7 +136,10 @@ const GadgetsPage = ({ category: propCategory }) => {
   // Effective max: prefer larger of page max vs global max slice
   const effectiveMaxPrice = useMemo(() => {
     const fallback = userCurrency === 'GBP' ? 2000 : 2000000;
-    return Math.max(globalMaxPrice || fallback, pageMaxPrice || fallback);
+    // Use globalMaxPrice if it's a valid positive number, otherwise use fallback
+    const validGlobalMax = (globalMaxPrice && globalMaxPrice > 0) ? globalMaxPrice : fallback;
+    const validPageMax = (pageMaxPrice && pageMaxPrice > 0) ? pageMaxPrice : fallback;
+    return Math.max(validGlobalMax, validPageMax);
   }, [globalMaxPrice, pageMaxPrice, userCurrency]);
 
   // Staggered grid animation

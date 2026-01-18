@@ -536,6 +536,15 @@ export const gadgetsAPI = {
     });
   },
 
+  // Admin: get single gadget by ID
+  adminGetById: async (id, adminUid) => {
+    const params = new URLSearchParams();
+    if (adminUid) params.append('adminUid', adminUid);
+    const qs = params.toString();
+    const endpoint = qs ? `/admin/gadgets/${id}?${qs}` : `/admin/gadgets/${id}`;
+    return await apiCall(endpoint);
+  },
+
   // Admin: get variants for a gadget
   adminGetVariants: async (gadgetId, adminUid, options = {}) => {
     const params = new URLSearchParams();

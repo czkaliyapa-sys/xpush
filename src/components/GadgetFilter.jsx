@@ -62,6 +62,9 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
   
   // Debounce timer for price slider
   const priceDebounceTimer = useRef(null);
+  
+  // Track previous slider values for proper thumb separation
+  const prevSliderValues = useRef([0, maxPrice]);
 
   // Map friendly condition labels to backend enum tokens
   const CONDITION_LABEL_TO_TOKEN = {
@@ -90,9 +93,17 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
     ...currentFilters
   });
 
-  // Update price range and filters when maxPrice changes (e.g., after data fetch)
+  // Update price range and filters when maxPrice changes significantly (e.g., after data fetch)
+  // Only adjust if there's a substantial change that indicates new data, not user interaction
   useEffect(() => {
     const prevMax = prevMaxRef.current;
+    const significantChangeThreshold = 100; // Only adjust if change is more than 100 units
+    
+    // Only proceed if maxPrice changed substantially (indicating new data load)
+    if (Math.abs(maxPrice - prevMax) < significantChangeThreshold) {
+      prevMaxRef.current = maxPrice;
+      return;
+    }
 
     // If the previous selection was at the old max, expand to the new max;
     // otherwise, preserve the user's lower max selection while clamping to bounds.
@@ -116,6 +127,12 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
     prevMaxRef.current = maxPrice;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxPrice]);
+
+  // Monitor price range changes for debugging
+  useEffect(() => {
+    // console.log('Price range updated:', priceRange);
+    // console.log('Filters updated:', filters.priceMin, filters.priceMax);
+  }, [priceRange, filters.priceMin, filters.priceMax]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -184,15 +201,66 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
     applyFilters(newFilters);
   };
 
-  // Handle price range change with debouncing
+  // Handle price range change with debouncing and proper validation
   const handlePriceChange = (event, newValue) => {
+    // Validate that min <= max with proper thumb separation
+    let [newMin, newMax] = newValue;
+    
+    // Store current values for next comparison
+    const [prevMin, prevMax] = prevSliderValues.current;
+    
+    // Ensure min doesn't exceed max - but maintain proper separation
+    if (newMin > newMax) {
+      // Instead of forcing min = max, swap them to maintain logical order
+      [newMin, newMax] = [newMax, newMin];
+    }
+    
+    // Ensure values stay within bounds
+    newMin = Math.max(0, Math.min(newMin, maxPrice));
+    newMax = Math.max(0, Math.min(newMax, maxPrice));
+    
+    // Maintain minimum separation between thumbs (at least 1 step)
+    const minSeparation = 1;
+    if (newMax - newMin < minSeparation) {
+      // Determine which thumb was actively moved by comparing to previous values
+      const minChanged = newMin !== prevMin;
+      const maxChanged = newMax !== prevMax;
+      
+      if (minChanged && !maxChanged) {
+        // Only min thumb was moved - adjust max to maintain separation
+        newMax = Math.min(newMin + minSeparation, maxPrice);
+      } else if (maxChanged && !minChanged) {
+        // Only max thumb was moved - adjust min to maintain separation
+        newMin = Math.max(newMax - minSeparation, 0);
+      } else {
+        // Both changed or neither changed significantly - favor the one with larger movement
+        const minDelta = Math.abs(newMin - prevMin);
+        const maxDelta = Math.abs(newMax - prevMax);
+        
+        if (minDelta > maxDelta) {
+          // Min had larger movement, adjust max
+          newMax = Math.min(newMin + minSeparation, maxPrice);
+        } else {
+          // Max had larger movement or equal, adjust min
+          newMin = Math.max(newMax - minSeparation, 0);
+        }
+      }
+    }
+    
+    const validatedValue = [newMin, newMax];
+    
     const newFilters = { 
       ...filters, 
-      priceMin: newValue[0], 
-      priceMax: newValue[1] 
+      priceMin: newMin, 
+      priceMax: newMax 
     };
+    
+    // Update both states synchronously
     setFilters(newFilters);
-    setPriceRange(newValue);
+    setPriceRange(validatedValue);
+    
+    // Update previous values reference
+    prevSliderValues.current = validatedValue;
     
     // Clear existing timer
     if (priceDebounceTimer.current) {
@@ -205,7 +273,7 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
     }, 300);
   };
 
-  // Apply price filter (on mouseup to avoid too many API calls)
+  // Apply price filter (on mouseup to avoid too many API calls) with improved validation
   const handlePriceCommit = (event, newValue) => {
     // Clear any pending debounced calls
     if (priceDebounceTimer.current) {
@@ -213,11 +281,57 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
       priceDebounceTimer.current = null;
     }
     
+    // Validate values with proper thumb separation
+    let [commitMin, commitMax] = newValue;
+    
+    // Use same logic as handlePriceChange for consistency
+    const [prevMin, prevMax] = prevSliderValues.current;
+    
+    // Ensure min <= max with proper separation
+    if (commitMin > commitMax) {
+      // Swap to maintain logical order instead of forcing equality
+      [commitMin, commitMax] = [commitMax, commitMin];
+    }
+    
+    // Ensure values stay within bounds
+    commitMin = Math.max(0, Math.min(commitMin, maxPrice));
+    commitMax = Math.max(0, Math.min(commitMax, maxPrice));
+    
+    // Maintain minimum separation between thumbs
+    const minSeparation = 1;
+    if (commitMax - commitMin < minSeparation) {
+      // Determine which thumb was actively moved
+      const minChanged = commitMin !== prevMin;
+      const maxChanged = commitMax !== prevMax;
+      
+      if (minChanged && !maxChanged) {
+        commitMax = Math.min(commitMin + minSeparation, maxPrice);
+      } else if (maxChanged && !minChanged) {
+        commitMin = Math.max(commitMax - minSeparation, 0);
+      } else {
+        const minDelta = Math.abs(commitMin - prevMin);
+        const maxDelta = Math.abs(commitMax - prevMax);
+        
+        if (minDelta > maxDelta) {
+          commitMax = Math.min(commitMin + minSeparation, maxPrice);
+        } else {
+          commitMin = Math.max(commitMax - minSeparation, 0);
+        }
+      }
+    }
+    
     const newFilters = { 
       ...filters, 
-      priceMin: newValue[0], 
-      priceMax: newValue[1] 
+      priceMin: commitMin, 
+      priceMax: commitMax 
     };
+    
+    // Ensure UI stays in sync
+    const finalValues = [commitMin, commitMax];
+    setPriceRange(finalValues);
+    setFilters(newFilters);
+    prevSliderValues.current = finalValues;
+    
     applyFilters(newFilters);
   };
 
@@ -662,7 +776,7 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
             {(() => {
               // Dynamic marks and step based on currency
               const isMWK = currency === 'MWK';
-              const step = isMWK ? 50000 : 25; // MWK uses larger steps, GBP uses £25 steps
+              const step = isMWK ? 50000 : 1; // MWK uses larger steps, GBP uses £1 steps for smoother dragging
               const midPoint = Math.round(maxPrice / 2);
               
               const marks = isMWK 
