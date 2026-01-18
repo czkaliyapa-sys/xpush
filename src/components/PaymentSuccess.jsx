@@ -4,6 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { paymentsAPI, ordersAPI } from '../services/api.js';
 import { recordEvent } from '../services/analyticsApi.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { formatOrderReference, generateCompactReference } from '../utils/orderReference.js';
 import {
   Box,
   Typography,
@@ -92,20 +93,143 @@ const PaymentSuccess = () => {
 
   useEffect(() => {
     const verifyPayment = async () => {
+      // Declare provider outside try block so it's accessible in catch
+      let provider = 'paychangu'; // default fallback
+      
       try {
         if (txRef) {
-          const data = await paymentsAPI.verifyPayChangu(txRef);
-          if (data.success) {
-            setSessionData(data.data);
+          console.log('🔍 Verifying payment with txRef:', txRef);
+          
+          // First, try to get session data from cache
+          const cachedCheckout = localStorage.getItem('xp_lastCheckout');
+          
+          // Detect provider from transaction reference prefix as primary method
+          if (txRef?.startsWith('SQ-')) {
+            provider = 'square';
+            console.log('💳 Detected Square payment from txRef prefix');
+          } else if (txRef?.startsWith('PC-')) {
+            provider = 'paychangu';
+            console.log('💳 Detected PayChangu payment from txRef prefix');
+          } else if (txRef?.startsWith('RENEWAL-')) {
+            // Subscription renewals - detect gateway from user's subscription data
+            console.log('🔄 Detected subscription renewal payment');
+            // For renewals, we'll try to detect from cache or default to paychangu (most renewals are PayChangu)
+            // In future, we could fetch user's subscription_gateway from backend
+          }
+          
+          let expectedAmount = null;
+          let expectedCurrency = null;
+          
+          if (cachedCheckout) {
+            try {
+              const checkoutData = JSON.parse(cachedCheckout);
+              // Override with cached provider if available (more reliable)
+              if (checkoutData.provider) {
+                provider = checkoutData.provider;
+                console.log('💳 Payment provider from cache (override):', provider);
+              }
+              expectedAmount = checkoutData.totalAmount || null;
+              expectedCurrency = checkoutData.currency || (provider === 'square' ? 'GBP' : 'MWK');
+              console.log('💰 Expected amount:', expectedAmount, expectedCurrency);
+            } catch (e) {
+              console.warn('Failed to parse cached checkout data');
+            }
           } else {
-            setError(data.error || 'Failed to verify payment');
+            // Set default currency based on detected provider
+            expectedCurrency = provider === 'square' ? 'GBP' : 'MWK';
+            console.log('💳 No cache found, using default currency:', expectedCurrency);
+          }
+          
+          let data;
+          if (provider === 'square') {
+            console.log('🔄 Verifying Square payment');
+            data = await paymentsAPI.verifySquarePayment(txRef);
+          } else {
+            console.log('🔄 Verifying PayChangu payment');
+            data = await paymentsAPI.verifyPayChangu(txRef);
+          }
+          
+          console.log('📊 Verification response:', data);
+          
+          if (data.success) {
+            const verifiedAmount = data.data?.amount;
+            const verifiedCurrency = data.data?.currency;
+            
+            console.log('💰 Verified amount:', verifiedAmount, verifiedCurrency);
+            
+            // Compare expected vs actual amounts
+            if (expectedAmount && verifiedAmount) {
+              const expectedFormatted = typeof expectedAmount === 'number' ? expectedAmount : parseFloat(expectedAmount);
+              const verifiedFormatted = typeof verifiedAmount === 'number' ? verifiedAmount : parseFloat(verifiedAmount);
+              
+              if (Math.abs(expectedFormatted - verifiedFormatted) > 1) {
+                console.warn('⚠️ Amount mismatch detected!', {
+                  expected: expectedFormatted,
+                  verified: verifiedFormatted,
+                  difference: Math.abs(expectedFormatted - verifiedFormatted)
+                });
+              }
+            }
+            
+            setSessionData(data.data);
+            console.log('✅ Payment verified successfully');
+          } else {
+            const errorMsg = data.error || 'Failed to verify payment';
+            console.error('❌ Payment verification failed:', errorMsg);
+            setError(errorMsg);
           }
         } else {
+          console.error('❌ No payment reference found');
           setError('No payment reference found');
         }
       } catch (err) {
-        console.error('Error verifying payment:', err);
-        setError('Failed to verify payment status');
+        console.error('💥 Error verifying payment:', err);
+        console.error('Error details:', {
+          message: err.message,
+          stack: err.stack,
+          response: err.response?.data,
+          status: err.response?.status,
+          provider: provider,
+          txRef: txRef,
+          endpoint: provider === 'square' ? `/payments/square/verify/${txRef}` : `/payments/paychangu/verify/${txRef}`
+        });
+        
+        // More descriptive error messages
+        let errorMessage = 'Failed to verify payment status';
+        
+        // Check if this is a subscription renewal
+        const isRenewal = txRef?.startsWith('RENEWAL-');
+        
+        // Specific handling for 502 errors (Bad Gateway)
+        if (err.response?.status === 502) {
+          if (provider === 'square') {
+            errorMessage = 'Unable to verify Square payment. The payment may have been processed successfully. Please check your email for confirmation or contact support with your order reference.';
+          } else if (isRenewal) {
+            errorMessage = 'Unable to verify subscription renewal payment. The payment may have been processed successfully. Please check your email for confirmation or contact support with your renewal reference.';
+          } else {
+            errorMessage = 'Unable to verify PayChangu payment. The payment may have been processed successfully. Please check your email for confirmation or contact support with your order reference.';
+          }
+        } else if (err.message?.includes('Network Error')) {
+          errorMessage = 'Network connection failed. Please check your internet connection.';
+        } else if (err.message?.includes('timeout')) {
+          errorMessage = 'Payment verification timed out. Please refresh the page.';
+        } else if (err.response?.status === 404) {
+          if (isRenewal) {
+            errorMessage = 'Subscription renewal reference not found. Please contact support with your renewal details.';
+          } else {
+            errorMessage = 'Payment reference not found. Please contact support.';
+          }
+        } else if (err.response?.status === 500) {
+          errorMessage = 'Server error occurred. Please try again or contact support.';
+        } else if (err.message?.includes('verify')) {
+          if (isRenewal) {
+            errorMessage = 'Subscription renewal verification failed. Please check your renewal details or contact support.';
+          } else {
+            errorMessage = 'Payment verification failed. Please check your transaction details or contact support.';
+          }
+        }
+        
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -198,11 +322,19 @@ const PaymentSuccess = () => {
 
   const formatAmount = (amount, currency) => {
     const code = currency?.toUpperCase() || 'MWK';
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     const divisor = code === 'MWK' ? 1 : 100; // MWK amounts come as whole numbers
+    const finalAmount = (numAmount || 0) / divisor;
+    
+    // Debug logging for pricing issues
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Formatting amount:', { amount, currency: code, divisor, finalAmount });
+    }
+    
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: code
-    }).format((amount || 0) / divisor);
+    }).format(finalAmount);
   };
 
   const handleContinueShopping = () => {
@@ -291,7 +423,7 @@ const PaymentSuccess = () => {
             <strong>Order Details:</strong>
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Payment ID: {sessionData.id}
+            Order Reference: {formatOrderReference(sessionData.id)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Amount: {formatAmount(sessionData.amount, sessionData.currency)}
@@ -313,56 +445,22 @@ const PaymentSuccess = () => {
       
       <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
         <Button
-          variant="outlined"
-          onClick={handleGoHome}
-          startIcon={<HomeIcon />}
-        >
-          Go to Home
-        </Button>
-        
-        <Button
           variant="contained"
           onClick={handleContinueShopping}
           startIcon={<ShoppingBagIcon />}
+          size="large"
         >
           Continue Shopping
         </Button>
-        {sessionData && (
-          <Button
-            variant="contained"
-            color="secondary"
-            onClick={handleDownloadReceipt}
-          >
-            Download Receipt (PDF)
-          </Button>
-        )}
-        {sessionData && (
-          <Button
-            variant="outlined"
-            color="secondary"
-            sx={{ ml: 1 }}
-            onClick={handleViewReceipt}
-          >
-            View Receipt (PDF)
-          </Button>
-        )}
+        
         {(sessionData || checkoutCache) && (
           <Button
             variant="outlined"
-            color="secondary"
-            onClick={handleDownloadOrder}
-          >
-            Download Order (PDF)
-          </Button>
-        )}
-        {(sessionData || checkoutCache) && (
-          <Button
-            variant="contained"
-            color="secondary"
-            sx={{ ml: 1 }}
+            color="primary"
             onClick={handleViewOrder}
+            size="large"
           >
-            View Order (PDF)
+            View Order
           </Button>
         )}
       </Box>
@@ -388,8 +486,8 @@ const PaymentSuccess = () => {
                   <td style={tableStyles.right}>{txRef || '—'}</td>
                 </tr>
                 <tr>
-                  <td style={tableStyles.td}>Payment ID</td>
-                  <td style={tableStyles.right}>{sessionData.id}</td>
+                  <td style={tableStyles.td}>Order Reference</td>
+                  <td style={tableStyles.right}>{generateCompactReference(sessionData.id)}</td>
                 </tr>
                 <tr>
                   <td style={tableStyles.td}>Email</td>
@@ -409,6 +507,39 @@ const PaymentSuccess = () => {
                 </tr>
               </tbody>
             </table>
+
+            {/* Fee Breakdown */}
+            {(checkoutCache?.subtotal || checkoutCache?.deliveryFee > 0 || checkoutCache?.subscriptionFee > 0) && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>Order Summary</Typography>
+                <table style={tableStyles.table}>
+                  <tbody>
+                    {typeof checkoutCache.subtotal === 'number' && (
+                      <tr>
+                        <td style={tableStyles.td}>Subtotal</td>
+                        <td style={tableStyles.right}>{formatAmount(checkoutCache.subtotal, sessionData.currency)}</td>
+                      </tr>
+                    )}
+                    {typeof checkoutCache.subscriptionFee === 'number' && checkoutCache.subscriptionFee > 0 && (
+                      <tr>
+                        <td style={tableStyles.td}>Xtrapush {checkoutCache.subscriptionTier === 'premium' ? 'Premium' : 'Plus'} (Monthly)</td>
+                        <td style={tableStyles.right}>{formatAmount(checkoutCache.subscriptionFee, sessionData.currency)}</td>
+                      </tr>
+                    )}
+                    {typeof checkoutCache.deliveryFee === 'number' && checkoutCache.deliveryFee > 0 && (
+                      <tr>
+                        <td style={tableStyles.td}>Delivery Fee</td>
+                        <td style={tableStyles.right}>{formatAmount(checkoutCache.deliveryFee, sessionData.currency)}</td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td style={{...tableStyles.td, fontWeight: 600}}>Total Amount</td>
+                      <td style={{...tableStyles.right, fontWeight: 600}}>{formatAmount(sessionData.amount, sessionData.currency)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </Box>
+            )}
 
             {/* Items block */}
             {(checkoutCache?.items || []).length > 0 && (

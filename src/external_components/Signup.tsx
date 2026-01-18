@@ -107,6 +107,10 @@ const ContentWrapper = styled(Box)(({ theme }) => ({
     gridTemplateColumns: '1fr',
     maxWidth: '500px',
   },
+  [theme.breakpoints.down('sm')]: {
+    maxWidth: '100%',
+    width: 'calc(100% - 32px)',
+  },
 }));
 
 const LeftPanel = styled(Box)(({ theme }) => ({
@@ -120,7 +124,7 @@ const LeftPanel = styled(Box)(({ theme }) => ({
     padding: theme.spacing(4),
   },
   [theme.breakpoints.down('md')]: {
-    minHeight: 'auto',
+    display: 'none',
   },
 }));
 
@@ -131,8 +135,9 @@ const RightPanel = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   justifyContent: 'center',
   padding: theme.spacing(2),
+  width: '100%',
   [theme.breakpoints.down('md')]: {
-    display: 'none',
+    display: 'flex',
   },
 }));
 
@@ -146,8 +151,10 @@ const DarkCard = styled(MuiCard)(({ theme }) => ({
   margin: 'auto',
   position: 'relative',
   zIndex: 1,
-  [theme.breakpoints.up('sm')]: {
-    maxWidth: '520px',
+  maxWidth: '520px',
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(2),
+    maxWidth: '100%',
   },
   background: 'rgba(30, 30, 30, 0.95)',
   color: '#fff',
@@ -196,6 +203,7 @@ export default function SignUp(props: { disableCustomTheme?: boolean }) {
   const [password, setPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [activeSlide, setActiveSlide] = React.useState(0);
+  const [googleSignupLoading, setGoogleSignupLoading] = React.useState(false);
   const navigate = useNavigate();
   const { hydrateBackendSession } = useAuth();
 
@@ -571,12 +579,14 @@ export default function SignUp(props: { disableCustomTheme?: boolean }) {
                 }}
               />
               
-              {/* Password Strength Indicator */}
-              <PasswordStrengthIndicator 
-                password={password} 
-                confirmPassword={confirmPassword}
-                showConfirmMatch={confirmPassword.length > 0}
-              />
+              {/* Password Strength Indicator - Only show if password has been entered */}
+              {password.length > 0 && (
+                <PasswordStrengthIndicator 
+                  password={password} 
+                  confirmPassword={confirmPassword}
+                  showConfirmMatch={confirmPassword.length > 0}
+                />
+              )}
             </FormControl>
             
             <FormControl>
@@ -659,25 +669,20 @@ export default function SignUp(props: { disableCustomTheme?: boolean }) {
     }
   }}
   onClick={async () => {
+    setGoogleSignupLoading(true);
     try {
-
-      
       // Pre-check domain authorization
       const isDomainAuthorized = checkDomainAuthorization();
       if (!isDomainAuthorized) {
-        // Domain not yet authorized; may cause auth/internal-error
-        
-        // Show specific error for production
         if (window.location.hostname.includes('itsxtrapush.com')) {
           alert('Domain authorization error: itsxtrapush.com needs to be added to Firebase authorized domains. Please contact support.');
+          setGoogleSignupLoading(false);
           return;
         }
       }
       
       const result = await signInWithPopup(auth, provider);
       
-      // Google sign-in successful
-
       // Register on backend; if conflict with email/password, auto-link
       try {
         const response = await authAPI.register({
@@ -691,6 +696,7 @@ export default function SignUp(props: { disableCustomTheme?: boolean }) {
           localStorage.setItem('backendUser', JSON.stringify(response.user));
           localStorage.setItem('backendSession', 'true');
           try { await hydrateBackendSession(response.user); } catch (e) { console.warn('Hydrate failed:', e); }
+          navigate('/dashboard');
         }
       } catch (backendError: any) {
         console.warn('Backend signup failed:', backendError?.response?.data || backendError?.message);
@@ -706,19 +712,22 @@ export default function SignUp(props: { disableCustomTheme?: boolean }) {
               localStorage.setItem('backendUser', JSON.stringify(linkResp.user));
               localStorage.setItem('backendSession', 'true');
               try { await hydrateBackendSession(linkResp.user); } catch (e) { console.warn('Hydrate failed:', e); }
+              navigate('/dashboard');
             } else {
-              throw new Error(linkResp?.error || 'Linking failed');
+              setGoogleSignupLoading(false);
+              alert('An account with this email already exists. Please sign in instead.');
             }
           } catch (linkErr: any) {
+            setGoogleSignupLoading(false);
             alert('An account with this email already exists with email/password. Please sign in with your email and password, then link Google in settings.');
-            return;
           }
+        } else {
+          setGoogleSignupLoading(false);
+          alert(backendError?.response?.data?.error || 'Sign-up failed. Please try again.');
         }
       }
-
-      // Redirect to dashboard after successful Google sign-up
-      navigate('/dashboard');
     } catch (error) {
+      setGoogleSignupLoading(false);
       console.error('Google Sign-Up Error:', error);
       
       // Safely narrow unknown error for code/message extraction
@@ -733,37 +742,38 @@ export default function SignUp(props: { disableCustomTheme?: boolean }) {
       console.error('Error context:', { code: errorCode, message: errMessage });
       
       // Enhanced error handling
-      let errorMessage = 'Sign-up failed. Please try again.';
+      let errorMessage = 'Sign-up with Google failed. Please try again.';
       
       switch (errorCode) {
         case 'auth/internal-error':
           errorMessage = 'Authentication service error. This usually means the domain needs to be authorized in Firebase. Please contact support.';
           break;
         case 'auth/unauthorized-domain':
-          errorMessage = `This domain (${window.location.hostname}) is not authorized for Google sign-up. Please contact support.`;
+          errorMessage = `This domain is not authorized for Google sign-up. Please contact support.`;
           break;
         case 'auth/popup-closed-by-user':
           errorMessage = 'Sign-up was cancelled. Please try again.';
           break;
         case 'auth/popup-blocked':
-          errorMessage = 'Pop-up was blocked. Please allow pop-ups and try again.';
+          errorMessage = 'Pop-up was blocked. Please enable pop-ups in your browser settings and try again.';
           break;
         case 'auth/account-exists-with-different-credential':
-          errorMessage = 'An account with this email already exists. Try signing in instead.';
+          errorMessage = 'An account with this email already exists. Please sign in instead.';
           break;
         case 'auth/network-request-failed':
           errorMessage = 'Network error. Please check your internet connection and try again.';
           break;
         default:
-          errorMessage = `Sign-up failed: ${errMessage}`;
+          errorMessage = errorCode === 'unknown' ? 'Sign-up failed. Please try again.' : `Sign-up failed: ${errMessage}`;
       }
       
       alert(errorMessage);
-      }
-      }}
+    }
+  }}
+      disabled={googleSignupLoading}
       startIcon={<GoogleIcon />}
     >
-      Sign up with Google
+      {googleSignupLoading ? 'Signing up...' : 'Sign up with Google'}
     </Button>
             </Box>
             </DarkCard>
@@ -796,14 +806,25 @@ function PasswordStrengthIndicator({ password, confirmPassword, showConfirmMatch
   const strengthLabels = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong', 'Very strong'];
   const label = strengthLabels[Math.min(validation.score, strengthLabels.length - 1)];
   const mismatch = showConfirmMatch && !!confirmPassword && password !== confirmPassword;
+  
   return (
     <Box sx={{ mt: 1 }}>
-      <Typography variant="caption" sx={{ color: validation.isValid ? '#81c784' : '#e57373' }}>
-        {validation.isValid ? `Password strength: ${label}` : validation.errors[0]}
-      </Typography>
+      {validation.isValid ? (
+        <Typography variant="caption" sx={{ color: '#81c784', fontWeight: 500 }}>
+          ✓ Password strength: {label}
+        </Typography>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {validation.errors.map((error, idx) => (
+            <Typography key={idx} variant="caption" sx={{ color: '#e57373', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <span style={{ fontSize: '0.9rem' }}>•</span> {error}
+            </Typography>
+          ))}
+        </Box>
+      )}
       {mismatch && (
-        <Typography variant="caption" sx={{ color: '#e57373', display: 'block' }}>
-          Passwords do not match.
+        <Typography variant="caption" sx={{ color: '#e57373', display: 'block', mt: 0.5, fontWeight: 500 }}>
+          ✗ Passwords do not match.
         </Typography>
       )}
     </Box>

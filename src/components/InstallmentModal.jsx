@@ -502,8 +502,22 @@ const InstallmentModal = ({ open, onClose, item, customerEmail }) => {
   }, [variants, selectedStorage, selectedCondition]);
 
   // Deposit percentages and total adjustments by weeks
-  const { depositAmount, remainingBalance, weeklyAmount, adjustedTotal, depositPercentage, totalAdjustmentPercentage } = useMemo(() => {
+  const { depositAmount, remainingBalance, weeklyAmount, adjustedTotal, depositPercentage, totalAdjustmentPercentage, isValidCalculation } = useMemo(() => {
     const totalBase = Number(basePrice) || 0;
+    const hasValidPrice = totalBase > 0;
+    
+    if (!hasValidPrice) {
+      return {
+        depositAmount: 0,
+        remainingBalance: 0,
+        weeklyAmount: 0,
+        adjustedTotal: 0,
+        depositPercentage: 0,
+        totalAdjustmentPercentage: 0,
+        isValidCalculation: false
+      };
+    }
+    
     let totalWithIncrease = totalBase;
     let depositPercent = 0.35; // default for 2 weeks
     let totalAdjustment = 0; // percentage adjustment
@@ -528,7 +542,8 @@ const InstallmentModal = ({ open, onClose, item, customerEmail }) => {
       weeklyAmount: weekly,
       adjustedTotal: totalWithIncrease,
       depositPercentage: Math.round(depositPercent * 100),
-      totalAdjustmentPercentage: totalAdjustment
+      totalAdjustmentPercentage: totalAdjustment,
+      isValidCalculation: true
     };
   }, [basePrice, weeks]);
 
@@ -1011,12 +1026,12 @@ const InstallmentModal = ({ open, onClose, item, customerEmail }) => {
                               width: 14, 
                               height: 14, 
                               borderRadius: '50%', 
-                              bgcolor: c.colorHex, 
+                              bgcolor: c.colorHex || '#cccccc', 
                               border: '1px solid rgba(255,255,255,0.5)',
                               flexShrink: 0
                             }} />
                           )}
-                          {c.color}
+                          <span style={{ color: c.colorHex ? 'inherit' : '#ffffff' }}>{c.color}</span>
                         </Box>
                       );
                     })
@@ -1478,23 +1493,31 @@ const InstallmentModal = ({ open, onClose, item, customerEmail }) => {
             <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 2, mb: 2 }}>
               <Box>
                 <Typography variant="caption" sx={{ opacity: 0.8 }}>Base price</Typography>
-                <Typography variant="body1">{formatLocalPrice(basePrice)}</Typography>
+                <Typography variant="body1">
+                  {basePrice > 0 ? formatLocalPrice(basePrice) : 'Price not available'}
+                </Typography>
               </Box>
               <Box>
                 <Typography variant="caption" sx={{ opacity: 0.8 }}>
                   Adjusted total {totalAdjustmentPercentage > 0 ? `(+${totalAdjustmentPercentage}%)` : ''}
                 </Typography>
-                <Typography variant="body1">{formatLocalPrice(adjustedTotal)}</Typography>
+                <Typography variant="body1">
+                  {isValidCalculation ? formatLocalPrice(adjustedTotal) : 'N/A'}
+                </Typography>
               </Box>
               <Box>
                 <Typography variant="caption" sx={{ opacity: 0.8 }}>
                   Deposit ({depositPercentage}% paying)
                 </Typography>
-                <Typography variant="body1">{formatLocalPrice(depositAmount)}</Typography>
+                <Typography variant="body1">
+                  {isValidCalculation ? formatLocalPrice(depositAmount) : 'N/A'}
+                </Typography>
               </Box>
               <Box>
                 <Typography variant="caption" sx={{ opacity: 0.8 }}>Remaining</Typography>
-                <Typography variant="body1">{formatLocalPrice(remainingBalance)}</Typography>
+                <Typography variant="body1">
+                  {isValidCalculation ? formatLocalPrice(remainingBalance) : 'N/A'}
+                </Typography>
               </Box>
             </Box>
 
@@ -1643,7 +1666,7 @@ const InstallmentModal = ({ open, onClose, item, customerEmail }) => {
               }
               await handleProceed();
             }}
-            disabled={isProcessing || !policyAccepted || (installmentType !== 'pay-to-lease' && (adjustedTotal <= 0 || depositAmount <= 0))}
+            disabled={isProcessing || !policyAccepted || !isValidCalculation || (installmentType !== 'pay-to-lease' && (adjustedTotal <= 0 || depositAmount <= 0))}
             sx={{ bgcolor: '#000', color: 'white', '&:hover': { bgcolor: '#111' }, width: isMobile ? '100%' : 'auto' }}
           >
             Proceed

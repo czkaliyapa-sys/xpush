@@ -26,9 +26,12 @@ import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import InstallmentModal from '../components/InstallmentModal'
 import QuickBookingModal from '../components/QuickBookingModal.tsx'
+import CartModal from '../components/CartModal.jsx';
 import { recordEvent } from '../services/analyticsApi.js';
+import { isGadgetAvailableForPurchase } from '../utils/priceValidation';
 import { motion } from 'framer-motion';
 
 interface ItemCard3DProps {
@@ -72,11 +75,21 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
   const [imageError, setImageError] = React.useState(false);
   const [imageLoading, setImageLoading] = React.useState(true);
   const [bookingOpen, setBookingOpen] = React.useState(false);
+  const [preOrderCartOpen, setPreOrderCartOpen] = React.useState(false);
   const { addToCart } = useCart();
   const { toggle: toggleWish, isWished } = useWishlist();
   const { user } = useAuth();
   const { currency, isInMalawi, formatLocalPrice } = usePricing();
   const [installmentOpen, setInstallmentOpen] = React.useState(false);
+  
+  // Check if gadget is available for purchase
+  const purchaseAvailability = React.useMemo(() => 
+    isGadgetAvailableForPurchase(
+      { price, priceMwk, priceGbp, number, in_stock: number > 0 }, 
+      isInMalawi ? 'MWK' : 'GBP'
+    ), 
+    [price, priceMwk, priceGbp, number, isInMalawi]
+  );
 
   // Determine which price to use based on user's location
   // For Malawi users: use MWK price directly (no conversion)
@@ -151,6 +164,13 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
     e.preventDefault();
     e.stopPropagation();
     
+    // Check if item is available for purchase
+    if (!purchaseAvailability.isValid) {
+      setSnackbarMessage(purchaseAvailability.reason);
+      setSnackbarOpen(true);
+      return;
+    }
+    
     if (number === 0) return;
     
     setIsProcessing(true);
@@ -184,6 +204,75 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
       setSnackbarOpen(true);
     } catch (error) {
       console.error('Add to cart error:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Handler for pre-order - opens cart modal with pre-order context
+  const handlePreOrder = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Pre-order items must have valid prices - no point pre-ordering items with zero prices
+    if (!purchaseAvailability.isValid) {
+      setSnackbarMessage(purchaseAvailability.reason);
+      setSnackbarOpen(true);
+      return;
+    }
+    
+    // Stock check for pre-order items
+    const stockQuantity = number ?? 0;
+    const inStock = stockQuantity > 0;
+    
+    if (!inStock) {
+      setSnackbarMessage('Item is out of stock');
+      setSnackbarOpen(true);
+      return;
+    }
+    
+    setIsProcessing(true);
+    
+    try {
+      const cat = String(category || '').toLowerCase();
+      const defaultStorage = ['smartphone','phone','tablet','laptop'].includes(cat) ? '32GB' : undefined;
+      // Use appropriate price based on location
+      const cartPrice = isInMalawi 
+        ? Number(priceMwk ?? price) 
+        : Number(priceGbp ?? price);
+      
+      // Add to cart with pre-order flag and treat as available (number=1 for cart purposes)
+      addToCart({
+        id,
+        title,
+        price: cartPrice,
+        priceGbp: Number(priceGbp ?? price),
+        priceMwk: Number(priceMwk ?? price),
+        image,
+        number: 1, // Treat as available for pre-order
+        brand,
+        condition: condition || 'new',
+        storage: defaultStorage,
+        category,
+        description: description || '',
+        isPreOrder: true // Mark as pre-order
+      });
+      
+      console.log('Pre-order item added to cart:', { id, title, isPreOrder: true });
+      
+      const sid = (typeof window !== 'undefined') ? localStorage.getItem('xp_analytics_sid') : null;
+      if (sid) {
+        try { recordEvent(sid, 'pre_order', { id, title, price: cartPrice, brand, category }); } catch (_) {}
+      }
+      
+      // Open the cart modal for pre-order checkout after ensuring state updates
+      // Small delay to allow React context state to propagate
+      setTimeout(() => {
+        console.log('Opening pre-order cart modal');
+        setPreOrderCartOpen(true);
+      }, 100);
+    } catch (error) {
+      console.error('Pre-order error:', error);
     } finally {
       setIsProcessing(false);
     }
@@ -360,148 +449,240 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
             alignItems: 'stretch'
           }}
         >
-          {(() => {
-            const priceLabel =
-              stockQuantity === 0
-                ? 'Coming Soon'
-                : isProcessing
+          {/* Show Pre-Order button ONLY when out of stock, otherwise show normal buttons */}
+          {outOfStock ? (
+            /* PRE-ORDER BUTTON - Only visible when item is out of stock */
+            <Box
+              sx={{
+                width: '100%',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                background: 'linear-gradient(180deg, #0b1220 0%, #050a14 100%)',
+                boxShadow: '0 10px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                transition: 'transform 160ms ease, box-shadow 160ms ease',
+                display: 'flex',
+                alignItems: 'stretch',
+                opacity: purchaseAvailability.isValid ? 1 : 0.6,
+                '&:hover': {
+                  transform: purchaseAvailability.isValid ? 'translateY(-2px)' : 'none',
+                  boxShadow: purchaseAvailability.isValid 
+                    ? '0 14px 28px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06)' 
+                    : '0 10px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
+                },
+                '&:active': {
+                  transform: purchaseAvailability.isValid ? 'translateY(-1px)' : 'none',
+                  boxShadow: purchaseAvailability.isValid 
+                    ? '0 12px 26px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)' 
+                    : '0 10px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
+                },
+              }}
+            >
+              <ButtonBase
+                onClick={handlePreOrder}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                disabled={isProcessing || !purchaseAvailability.isValid}
+                sx={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 1,
+                  px: { xs: 3, sm: 2.75 },
+                  py: { xs: 1.75, sm: 1.35 },
+                  color: 'white',
+                  transition: 'background-color 160ms ease',
+                  backgroundColor: 'transparent',
+                  cursor: purchaseAvailability.isValid ? 'pointer' : 'not-allowed',
+                  '&:hover': { 
+                    backgroundColor: purchaseAvailability.isValid ? 'rgba(255, 255, 255, 0.1)' : 'transparent' 
+                  },
+                  '&:active': { 
+                    backgroundColor: purchaseAvailability.isValid ? 'rgba(255, 255, 255, 0.15)' : 'transparent' 
+                  },
+                }}
+              >
+                <ShoppingCartIcon sx={{ color: 'white', fontSize: { xs: 20, sm: 19 } }} />
+                <Typography
+                  variant="body1"
+                  fontWeight={700}
+                  sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.95rem', sm: '0.9rem' } }}
+                >
+                  {isProcessing 
+                    ? 'Processing...' 
+                    : purchaseAvailability.isValid 
+                      ? 'Pre-Order Now' 
+                      : 'Price not set'}
+                </Typography>
+              </ButtonBase>
+            </Box>
+          ) : (
+            /* NORMAL BUTTONS - Visible when item is in stock */
+            <>
+              {(() => {
+                const priceLabel = isProcessing
                   ? 'Adding...'
-                  : `From ${displayPrice}`;
-            return (
-              <CombinedActionButton
-                onAddToCart={handleAddToCart}
-                addDisabled={isProcessing || outOfStock}
-                priceLabel={priceLabel}
-              />
-            );
-          })()}
+                  : purchaseAvailability.isValid
+                    ? `From ${displayPrice}`
+                    : 'Price not set';
+                
+                const buttonDisabled = isProcessing || !purchaseAvailability.isValid;
+                
+                return (
+                  <CombinedActionButton
+                    onAddToCart={handleAddToCart}
+                    addDisabled={buttonDisabled}
+                    priceLabel={priceLabel}
+                  />
+                );
+              })()}
 
-          {/* Installments button appears directly underneath the combined action control */}
-          <Box
-            sx={{
-              width: '100%',
-              borderRadius: '12px',
-              overflow: 'hidden',
-              background: 'linear-gradient(180deg, #0b1220 0%, #050a14 100%)',
-              boxShadow: '0 10px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-              transition: 'transform 160ms ease, box-shadow 160ms ease',
-              display: 'flex',
-              alignItems: 'stretch',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: '0 14px 28px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06)'
-              },
-              '&:active': {
-                transform: 'translateY(-1px)',
-                boxShadow: '0 12px 26px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
-              },
-            }}
-          >
-            <ButtonBase
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setInstallmentOpen(true);
-              }}
-              onMouseDown={(e) => {
-                // Extra guard to prevent parent Link from handling navigation
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              disabled={outOfStock}
-              sx={{
-                flex: 1,
-                minWidth: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 1,
-                px: { xs: 3, sm: 2.75 },
-                py: { xs: 1.75, sm: 1.35 },
-                color: outOfStock ? 'rgba(255,255,255,0.6)' : 'white',
-                transition: 'background-color 160ms ease',
-                backgroundColor: 'transparent',
-                '&:hover': { backgroundColor: outOfStock ? 'transparent' : 'rgba(59, 130, 246, 0.18)' },
-                '&:active': { backgroundColor: outOfStock ? 'transparent' : 'rgba(59, 130, 246, 0.28)' },
-                opacity: outOfStock ? 0.8 : 1,
-                cursor: outOfStock ? 'not-allowed' : 'pointer',
-              }}
-            >
-              <PaymentsIcon sx={{ color: outOfStock ? 'rgba(255,255,255,0.6)' : 'white', fontSize: { xs: 20, sm: 19 } }} />
-              <Typography
-                variant="body1"
-                fontWeight={700}
-                sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.95rem', sm: '0.9rem' } }}
+              {/* Installments button appears directly underneath the combined action control */}
+              <Box
+                sx={{
+                  width: '100%',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  background: 'linear-gradient(180deg, #0b1220 0%, #050a14 100%)',
+                  boxShadow: '0 10px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                  transition: 'transform 160ms ease, box-shadow 160ms ease',
+                  display: 'flex',
+                  alignItems: 'stretch',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 14px 28px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06)'
+                  },
+                  '&:active': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 12px 26px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
+                  },
+                }}
               >
-                Buy / Use 
-                in installments
-              </Typography>
-            </ButtonBase>
-          </Box>
+                <ButtonBase
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Check if item is available for installment purchase
+                    if (!purchaseAvailability.isValid) {
+                      setSnackbarMessage(purchaseAvailability.reason);
+                      setSnackbarOpen(true);
+                      return;
+                    }
+                    
+                    setInstallmentOpen(true);
+                  }}
+                  onMouseDown={(e) => {
+                    // Extra guard to prevent parent Link from handling navigation
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 1,
+                    px: { xs: 3, sm: 2.75 },
+                    py: { xs: 1.75, sm: 1.35 },
+                    color: 'white',
+                    transition: 'background-color 160ms ease',
+                    backgroundColor: 'transparent',
+                    opacity: purchaseAvailability.isValid ? 1 : 0.6,
+                    cursor: purchaseAvailability.isValid ? 'pointer' : 'not-allowed',
+                    '&:hover': { 
+                      backgroundColor: purchaseAvailability.isValid ? 'rgba(59, 130, 246, 0.18)' : 'transparent' 
+                    },
+                    '&:active': { 
+                      backgroundColor: purchaseAvailability.isValid ? 'rgba(59, 130, 246, 0.28)' : 'transparent' 
+                    },
+                  }}
+                >
+                  <PaymentsIcon sx={{ color: 'white', fontSize: { xs: 20, sm: 19 } }} />
+                  <Typography
+                    variant="body1"
+                    fontWeight={700}
+                    sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.95rem', sm: '0.9rem' } }}
+                  >
+                    Buy / Use 
+                    in installments
+                  </Typography>
+                </ButtonBase>
+              </Box>
 
-          {/* Book Viewing button - same condition as Pay in Installments (only disabled when out of stock) */}
-          <Box
-            sx={{
-              width: '100%',
-              borderRadius: '12px',
-              overflow: 'hidden',
-              background: 'linear-gradient(180deg, #0b1220 0%, #050a14 100%)',
-              boxShadow: '0 10px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-              transition: 'transform 160ms ease, box-shadow 160ms ease',
-              display: 'flex',
-              alignItems: 'stretch',
-              '&:hover': {
-                transform: outOfStock ? 'none' : 'translateY(-2px)',
-                boxShadow: outOfStock ? '0 10px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)' : '0 14px 28px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06)'
-              },
-              '&:active': {
-                transform: outOfStock ? 'none' : 'translateY(-1px)',
-                boxShadow: outOfStock ? '0 10px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)' : '0 12px 26px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
-              },
-            }}
-          >
-            <ButtonBase
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setBookingOpen(true);
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              disabled={outOfStock}
-              sx={{
-                flex: 1,
-                minWidth: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 1,
-                px: { xs: 3, sm: 2.75 },
-                py: { xs: 1.75, sm: 1.35 },
-                color: outOfStock ? 'rgba(255,255,255,0.6)' : 'white',
-                transition: 'background-color 160ms ease',
-                backgroundColor: 'transparent',
-                '&:hover': { backgroundColor: outOfStock ? 'transparent' : 'rgba(59, 130, 246, 0.18)' },
-                '&:active': { backgroundColor: outOfStock ? 'transparent' : 'rgba(59, 130, 246, 0.28)' },
-                opacity: outOfStock ? 0.8 : 1,
-                cursor: outOfStock ? 'not-allowed' : 'pointer',
-              }}
-            >
-              <CalendarMonthIcon sx={{ fontSize: 18 }} />
-              <Typography
-                variant="body1"
-                fontWeight={700}
-                sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.95rem', sm: '0.9rem' } }}
+              {/* Book Viewing button */}
+              <Box
+                sx={{
+                  width: '100%',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  background: 'linear-gradient(180deg, #0b1220 0%, #050a14 100%)',
+                  boxShadow: '0 10px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                  transition: 'transform 160ms ease, box-shadow 160ms ease',
+                  display: 'flex',
+                  alignItems: 'stretch',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 14px 28px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06)'
+                  },
+                  '&:active': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 12px 26px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
+                  },
+                }}
               >
-                Book Viewing
-              </Typography>
-            </ButtonBase>
-          </Box>
+                <ButtonBase
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setBookingOpen(true);
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 1,
+                    px: { xs: 3, sm: 2.75 },
+                    py: { xs: 1.75, sm: 1.35 },
+                    color: 'white',
+                    transition: 'background-color 160ms ease',
+                    backgroundColor: 'transparent',
+                    '&:hover': { backgroundColor: 'rgba(59, 130, 246, 0.18)' },
+                    '&:active': { backgroundColor: 'rgba(59, 130, 246, 0.28)' },
+                  }}
+                >
+                  <CalendarMonthIcon sx={{ fontSize: 18 }} />
+                  <Typography
+                    variant="body1"
+                    fontWeight={700}
+                    sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.95rem', sm: '0.9rem' } }}
+                  >
+                    Book Viewing
+                  </Typography>
+                </ButtonBase>
+              </Box>
+            </>
+          )}
         </CardActions>
       </Card>
       </motion.div>
+
+      {/* Pre-Order Cart Modal */}
+      <CartModal 
+        open={preOrderCartOpen} 
+        onClose={() => setPreOrderCartOpen(false)}
+        gadget={null}
+      />
 
       <InstallmentModal
         open={installmentOpen}

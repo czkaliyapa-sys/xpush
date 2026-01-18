@@ -5,7 +5,7 @@ import Title from './Title';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { usePricing } from '../hooks/usePricing';
 import { ordersAPI, adminAPI, installmentsAPI, paymentsAPI } from '../services/api.js';
-import { formatMWK } from '../utils/formatters';
+import { convertMwkToGbp } from '../services/currencyService';
 import InstallmentPaymentModal from '../components/InstallmentPaymentModal.jsx';
 import PrintableOrder from '../components/PrintableOrder.jsx';
 import { useReactToPrint } from 'react-to-print';
@@ -83,7 +83,7 @@ function extractPlan(order) {
 
 export default function Installments() {
   const { user, isAdmin, userProfile } = useAuth();
-  const { currency } = usePricing();
+  const { currency, isInMalawi } = usePricing();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -170,6 +170,37 @@ export default function Installments() {
     fetchInstallments();
   }, [user, isAdmin]);
 
+  const normalizeCurrency = (code) => {
+    const c = (code || '').toUpperCase();
+    if (c === 'GBP' || c === 'MWK') return c;
+    return isInMalawi ? 'MWK' : 'GBP';
+  };
+
+  const normalizeAmount = (amount, currencyCode) => {
+    const curr = normalizeCurrency(currencyCode);
+    const num = Number(amount);
+    if (!Number.isFinite(num)) return 0;
+    if (curr === 'GBP') {
+      if (Math.abs(num) >= 20000) return num / 100;
+      return num;
+    }
+    return num;
+  };
+
+  const formatAmount = (amount, currencyCode) => {
+    const curr = normalizeCurrency(currencyCode);
+    const base = normalizeAmount(amount, curr);
+    // If order is MWK but user is not in Malawi, convert for display
+    const value = (curr === 'MWK' && !isInMalawi) ? convertMwkToGbp(base) : base;
+    const displayCurrency = (curr === 'MWK' && !isInMalawi) ? 'GBP' : curr;
+    const formatter = new Intl.NumberFormat(displayCurrency === 'GBP' ? 'en-GB' : 'en-MW', {
+      style: 'currency',
+      currency: displayCurrency,
+      maximumFractionDigits: displayCurrency === 'MWK' ? 0 : 2,
+    });
+    return formatter.format(value);
+  };
+
   const rows = useMemo(() => orders.map((order) => {
     const plan = extractPlan(order);
     const server = serverInstallments[order.id];
@@ -199,6 +230,7 @@ export default function Installments() {
     }
     return {
       id: order.id,
+      currency: order.currency || currency,
       userEmail: order.userEmail,
       userName: order.userName,
       createdAt: order.createdAt,
@@ -269,8 +301,8 @@ export default function Installments() {
 
       const options = {
         customerEmail: user?.email || null,
-        successUrl: 'https://itsxtrapush.com/payment/success',
-        cancelUrl: 'https://itsxtrapush.com/payment/cancel',
+        successUrl: process.env.REACT_APP_PAYMENT_SUCCESS_URL || 'https://itsxtrapush.com/payment/success',
+        cancelUrl: process.env.REACT_APP_PAYMENT_CANCEL_URL || 'https://itsxtrapush.com/payment/cancel',
         installmentPlan,
         currency: currency
       };
@@ -388,8 +420,8 @@ export default function Installments() {
                   <TableCell>{row.startDate ? new Date(row.startDate).toLocaleDateString() : '—'}</TableCell>
                   <TableCell>{row.expiryDate ? new Date(row.expiryDate).toLocaleDateString() : '—'}</TableCell>
                   <TableCell>{row.weeks || '—'} weeks</TableCell>
-                  <TableCell align="right">{formatMWK(row.amountPaid || 0)}</TableCell>
-                  <TableCell align="right">{formatMWK(row.remainingAmount || 0)}</TableCell>
+                  <TableCell align="right">{formatAmount(row.amountPaid || 0, row.currency)}</TableCell>
+                  <TableCell align="right">{formatAmount(row.remainingAmount || 0, row.currency)}</TableCell>
                   <TableCell>{row.nextDueDate ? new Date(row.nextDueDate).toLocaleDateString() : '—'}</TableCell>
                   <TableCell>
                     {row.status === 'paid' ? (

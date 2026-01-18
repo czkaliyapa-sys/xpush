@@ -47,31 +47,68 @@ const InstallmentPolicy = () => {
           </Typography>
           <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3 }}>Last updated: December 2025</Typography>
 
-          {/* Plan Selection Tabs */}
-          <Box sx={{ mb: 4, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+          {/* Plan Selection Tabs - Mobile Responsive */}
+          <Box sx={{ 
+            mb: 4, 
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            width: '100%',
+            overflowX: 'auto',
+            '&::-webkit-scrollbar': {
+              height: '6px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '3px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'rgba(72, 206, 219, 0.5)',
+              borderRadius: '3px',
+            }
+          }}>
             <Tabs
               value={selectedPlan}
               onChange={(e, newValue) => {
                 // Prevent switching to Pay as You Go tab (index 1)
                 if (newValue !== 1) setSelectedPlan(newValue);
               }}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
               sx={{
+                minHeight: { xs: 48, sm: 48 },
                 '& .MuiTab-root': {
                   color: 'rgba(255, 255, 255, 0.6)',
+                  minWidth: { xs: 'auto', sm: 90 },
+                  padding: { xs: '12px 8px', sm: '12px 16px' },
+                  fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                  textTransform: 'none',
+                  fontWeight: 500,
                   '&.Mui-selected': {
                     color: '#48CEDB',
                   },
                   '&.Mui-disabled': {
                     color: 'rgba(255, 255, 255, 0.3)',
+                  },
+                  '&:hover:not(.Mui-disabled)': {
+                    color: 'rgba(72, 206, 219, 0.8)',
+                    backgroundColor: 'rgba(72, 206, 219, 0.05)',
                   }
                 },
                 '& .MuiTabs-indicator': {
-                  backgroundColor: '#48CEDB'
+                  backgroundColor: '#48CEDB',
+                  height: '3px',
+                },
+                '& .MuiTabs-scrollButtons': {
+                  color: '#48CEDB',
+                  width: 32,
+                  '&.Mui-disabled': {
+                    opacity: 0.3,
+                  }
                 }
               }}
             >
               <Tab label="Pay to Own" />
-              <Tab label="Pay as You Go (Coming Soon)" disabled />
+              <Tab label="Pay as You Go" disabled />
               <Tab label="Pay to Lease" />
               <Tab label="Comparison" />
             </Tabs>

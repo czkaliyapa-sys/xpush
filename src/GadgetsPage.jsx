@@ -17,6 +17,7 @@ import {
   CATEGORY_META
 } from "./utils/seoUtils.js";
 import { useLocation as useLocationContext } from "./contexts/LocationContext";
+import { variantPricingUtils } from './utils/variantPricingUtils.js';
 import { CircularProgress, Alert, Box, Typography, Drawer, IconButton, Button, useTheme, useMediaQuery } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import CloseIcon from '@mui/icons-material/Close';
@@ -38,7 +39,7 @@ const GadgetsPage = ({ category: propCategory }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({ inStock: true });
+  const [filters, setFilters] = useState({ inStock: null }); // Show all items by default (in-stock + out-of-stock)
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [currentCategory, setCurrentCategory] = useState(propCategory || null);
   const location = useLocation();
@@ -76,7 +77,7 @@ const GadgetsPage = ({ category: propCategory }) => {
   const pageMaxPrice = useMemo(() => {
     try {
       const priceOf = (item) => {
-        // Use price_gbp for GBP users, price for MWK users
+        // Use processed price_gbp for GBP users, processed price for MWK users
         const p = userCurrency === 'GBP' 
           ? (item?.price_gbp ?? item?.priceGbp ?? item?.price)
           : item?.price;
@@ -101,7 +102,7 @@ const GadgetsPage = ({ category: propCategory }) => {
         const res = await gadgetsAPI.getAll({ page: 1, limit: 1000, category, brand, inStock, condition, currency: userCurrency });
         if (res && res.success && Array.isArray(res.data)) {
           const priceOf = (item) => {
-            // Use price_gbp for GBP users, price for MWK users
+            // Use processed price_gbp for GBP users, processed price for MWK users
             const p = userCurrency === 'GBP' 
               ? (item?.price_gbp ?? item?.priceGbp ?? item?.price)
               : item?.price;
@@ -146,6 +147,7 @@ const GadgetsPage = ({ category: propCategory }) => {
   const sortGadgets = (list = [], sortBy = 'newest') => {
     const data = Array.isArray(list) ? [...list] : [];
     const priceOf = (item) => {
+      // Use processed prices (could be from variants)
       const p = item?.price;
       const n = typeof p === 'string' ? Number(p.replace(/[^0-9.]/g, '')) : Number(p);
       return Number.isFinite(n) ? n : 0;
@@ -262,12 +264,25 @@ const GadgetsPage = ({ category: propCategory }) => {
   // Fetch gadgets from backend with filters
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const fetchGadgets = async (appliedFilters = {}) => {
+  const fetchGadgets = async (appliedFilters = {}, pageNum = page) => {
     try {
       // If we already hydrated from cache, avoid showing the loader again
       if (!didHydrateFromCache) setLoading(true);
       setError(null);
-      const mergedFilters = { page, limit: 20, ...appliedFilters, currency: userCurrency };
+      
+      // Clean filters: remove null and undefined values before sending to API
+      const cleanedFilters = Object.entries(appliedFilters).reduce((acc, [key, value]) => {
+        if (value !== null && value !== undefined) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {});
+      
+      // For All Products mode (no inStock filter), fetch all items for proper randomization
+      const isAllProductsMode = !('inStock' in cleanedFilters);
+      const limit = isAllProductsMode ? 200 : 20; // Fetch all for randomization
+      
+      const mergedFilters = { page: pageNum, limit, ...cleanedFilters, currency: userCurrency };
       console.log('🔍 Fetching gadgets with filters:', mergedFilters);
       console.log('API URL:', process.env.REACT_APP_API_URL || 'https://sparkle-pro.co.uk/api');
       
@@ -276,16 +291,29 @@ const GadgetsPage = ({ category: propCategory }) => {
       
       if (response && response.success && Array.isArray(response.data)) {
         console.log('✅ Valid gadgets response:', response.data.length, 'gadgets');
-        // If loading subsequent pages, append; otherwise replace
-        setGadgets(prev => (page > 1 ? [...prev, ...response.data] : response.data));
-        const newTotal = response.pagination?.total ?? response.count ?? response.data.length;
+        
+        // Only combine lists for page > 1, otherwise start fresh
+        const baseList = pageNum > 1 ? [...gadgets, ...response.data] : response.data;
+        console.log('🧮 Base list count:', baseList.length, 'pageNum:', pageNum);
+        
+        // Preprocess gadgets using centralized variant pricing system
+        const processedGadgets = baseList.map(gadget => 
+          variantPricingUtils.processGadgetWithVariants(gadget, gadget.variants || [])
+        );
+        
+        // Update state with processed list
+        setGadgets(processedGadgets);
+        
+        // Use pagination total if available, otherwise use the actual data count
+        // For All Products mode (limit=200), trust the actual data length
+        const isAllProductsMode = !('inStock' in cleanedFilters);
+        const newTotal = isAllProductsMode 
+          ? response.data.length 
+          : (response.pagination?.total ?? response.count ?? response.data.length);
         setTotal(newTotal);
+        console.log('📊 Total set to:', newTotal, 'isAllProductsMode:', isAllProductsMode);
         
-        // Combine current list for proper sorting across pages
-        const baseList = page > 1 ? [...gadgets, ...response.data] : response.data;
-        console.log('🧮 Base list count:', baseList.length);
-        
-        let afterStock = baseList;
+        let afterStock = processedGadgets;
         
         // Local search filter
         const afterSearch = searchQuery ? afterStock.filter(gadget => {
@@ -294,22 +322,32 @@ const GadgetsPage = ({ category: propCategory }) => {
         }) : afterStock;
         console.log('🔎 After search filter count:', afterSearch.length);
         
-        // Apply sorting (prefer freshly applied filters to avoid stale state)
+        // Apply sorting only on page 1 to avoid rearranging items on View More
         const selectedSort = (appliedFilters?.sortBy ?? filters.sortBy ?? 'newest');
-        const sorted = sortGadgets(afterSearch, selectedSort);
+        let sorted;
+        
+        // Check if we should randomize (All Products mode - no inStock filter)
+        const shouldRandomize = !('inStock' in cleanedFilters);
+        console.log('🎲 Should randomize:', shouldRandomize, 'cleanedFilters:', cleanedFilters);
+        
+        if (pageNum === 1) {
+          if (shouldRandomize) {
+            console.log('🎲 Randomizing all products...');
+            // Fisher-Yates shuffle for true randomization
+            sorted = [...afterSearch];
+            for (let i = sorted.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
+            }
+          } else {
+            sorted = sortGadgets(afterSearch, selectedSort);
+          }
+        } else {
+          sorted = afterSearch;
+        }
+        
         console.log('📊 Final sorted count:', sorted.length);
         setFilteredGadgets(sorted);
-
-        // Persist lightweight cache for smoother back navigation
-        try {
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-            timestamp: Date.now(),
-            gadgets: baseList,
-            total: newTotal,
-            filters: { ...filters },
-            page
-          }));
-        } catch {}
       } else {
         console.error('❌ Invalid response structure:', response);
         setGadgets([]);
@@ -334,26 +372,18 @@ const GadgetsPage = ({ category: propCategory }) => {
 
   // Initial fetch
   useEffect(() => {
-    // Try to hydrate from session cache for instant UI on back navigation
+    // Clear cache on mount to always start fresh
     try {
-      const raw = sessionStorage.getItem(CACHE_KEY);
-      if (raw) {
-        const cache = JSON.parse(raw);
-        const ageMs = Date.now() - (cache?.timestamp || 0);
-        // Use cache if it is fresh (<= 3 minutes) and has data
-        if (Array.isArray(cache?.gadgets) && cache.gadgets.length > 0 && ageMs <= 3 * 60 * 1000) {
-          setGadgets(cache.gadgets);
-          setTotal(Number(cache.total) || cache.gadgets.length);
-          // Respect cached sort order
-          setFilteredGadgets(sortGadgets(cache.gadgets, cache.filters?.sortBy || 'newest'));
-          setFilters({ ...filters, ...cache.filters });
-          setPage(Number(cache.page) || 1);
-          setLoading(false);
-          setDidHydrateFromCache(true);
-        }
-      }
+      sessionStorage.removeItem(CACHE_KEY);
     } catch {}
-    fetchGadgets(filters);
+    fetchGadgets(filters, 1);
+  }, []); // Empty dependency array - only run once on mount
+
+  // Handle pagination (View More button)
+  useEffect(() => {
+    if (page > 1) {
+      fetchGadgets(filters, page);
+    }
   }, [page]);
 
   // Handle search from other pages
@@ -399,33 +429,114 @@ const GadgetsPage = ({ category: propCategory }) => {
       return;
     }
     
-    const filtered = gadgetList.filter(gadget => 
-      gadget.name.toLowerCase().includes(query.toLowerCase()) ||
-      gadget.description.toLowerCase().includes(query.toLowerCase())
-    );
+    const searchTerm = query.toLowerCase();
+    const filtered = gadgetList.filter(gadget => {
+      // Search across all relevant fields
+      const searchableText = [
+        gadget.name,
+        gadget.title,
+        gadget.description,
+        gadget.brand,
+        gadget.model,
+        gadget.category
+      ].filter(Boolean).join(' ').toLowerCase();
+      
+      return searchableText.includes(searchTerm);
+    });
     // Apply sorting to filtered results
     setFilteredGadgets(sortGadgets(filtered, filters.sortBy ?? 'newest'));
   };
   
-  const handleSearch = (query) => {
+  const handleSearch = async (query) => {
     setSearchQuery(query);
-    filterGadgets(query, gadgets);
+    if (!query || query.trim() === '') {
+      // If search is cleared, fetch all gadgets with current filters
+      setPage(1);
+      fetchGadgets(filters, 1);
+      return;
+    }
+    
+    // Search via API to find all matching gadgets
+    try {
+      setLoading(true);
+      const response = await gadgetsAPI.search(query);
+      if (response && response.success && Array.isArray(response.data)) {
+        // Apply current stock filter if set
+        let results = response.data;
+        if (filters.inStock !== null && filters.inStock !== undefined) {
+          results = results.filter(gadget => {
+            const stockQty = gadget.stock_quantity ?? gadget.stockQuantity ?? gadget.stock ?? 0;
+            const inStock = gadget.inStock || gadget.in_stock || Number(stockQty) > 0;
+            return filters.inStock ? inStock : !inStock;
+          });
+        }
+        setGadgets(results);
+        setFilteredGadgets(results);
+        setTotal(results.length);
+        setPage(1);
+      }
+    } catch (error) {
+      console.error('Search failed:', error);
+    } finally {
+      setLoading(false);
+    }
   };
   
-  // Function to handle real-time search as user types
+  // Debounce timer ref
+  const searchTimeoutRef = React.useRef(null);
+  
+  // Function to handle real-time search as user types (debounced)
   const handleSearchInputChange = (inputValue) => {
     setSearchQuery(inputValue);
-    filterGadgets(inputValue, gadgets);
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Debounce API call by 300ms
+    searchTimeoutRef.current = setTimeout(async () => {
+      if (!inputValue || inputValue.trim() === '') {
+        // If search is cleared, fetch all gadgets with current filters
+        setPage(1);
+        fetchGadgets(filters, 1);
+        return;
+      }
+      
+      // Search via API
+      try {
+        const response = await gadgetsAPI.search(inputValue);
+        if (response && response.success && Array.isArray(response.data)) {
+          // Apply current stock filter if set
+          let results = response.data;
+          if (filters.inStock !== null && filters.inStock !== undefined) {
+            results = results.filter(gadget => {
+              const stockQty = gadget.stock_quantity ?? gadget.stockQuantity ?? gadget.stock ?? 0;
+              const inStock = gadget.inStock || gadget.in_stock || Number(stockQty) > 0;
+              return filters.inStock ? inStock : !inStock;
+            });
+          }
+          setGadgets(results);
+          setFilteredGadgets(results);
+          setTotal(results.length);
+          setPage(1);
+        }
+      } catch (error) {
+        console.error('Search failed:', error);
+      }
+    }, 300);
   };
 
   // Handle filter changes from sidebar
   const handleFiltersChange = (newFilters) => {
-    setFilters(newFilters);
-    // Reset pagination when applying new filters
-    setPage(1);
+    // Clear state immediately to prevent showing old data with new counts
     setGadgets([]);
     setFilteredGadgets([]);
-    fetchGadgets(newFilters);
+    setTotal(0);
+    setPage(1);
+    setFilters(newFilters);
+    // Fetch with new filters and explicitly pass page 1
+    fetchGadgets(newFilters, 1);
   };
 
   // Toggle mobile filter drawer
@@ -607,7 +718,7 @@ const GadgetsPage = ({ category: propCategory }) => {
                     variant="body1" 
                     sx={{ color: 'white', mb: 3, opacity: 0.8 }}
                   >
-                    Showing {filteredGadgets.length} of {total} gadget{total !== 1 ? 's' : ''}
+                    Showing {gadgets.length} of {total} gadget{total !== 1 ? 's' : ''}
                     {searchQuery && ` for "${searchQuery}"`}
                   </Typography>
                   
@@ -666,14 +777,39 @@ const GadgetsPage = ({ category: propCategory }) => {
                     </motion.div>
                   </Suspense>
 
-                  {/* View More */}
-                  {filteredGadgets.length < total && (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                      <Button variant="contained" color="primary" onClick={() => setPage(prev => prev + 1)}>
+                  {/* Pagination Controls */}
+                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 4 }}>
+                    {/* View Less */}
+                    {page > 1 && (
+                      <Button 
+                        variant="outlined" 
+                        color="primary"
+                        onClick={() => {
+                          const itemsPerPage = 20;
+                          const newPage = page - 1;
+                          setPage(newPage);
+                          // Remove last page of items from gadgets array
+                          setGadgets(prev => prev.slice(0, newPage * itemsPerPage));
+                          setFilteredGadgets(prev => prev.slice(0, newPage * itemsPerPage));
+                        }}
+                      >
+                        View Less
+                      </Button>
+                    )}
+                    
+                    {/* View More */}
+                    {gadgets.length < total && (
+                      <Button 
+                        variant="contained" 
+                        color="primary"
+                        onClick={() => {
+                          setPage(prev => prev + 1);
+                        }}
+                      >
                         View More
                       </Button>
-                    </Box>
-                  )}
+                    )}
+                  </Box>
                 </>
               )}
             </section>

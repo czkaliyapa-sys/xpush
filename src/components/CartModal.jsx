@@ -65,7 +65,16 @@ const CartModal = ({ open, onClose, gadget }) => {
   const { currency, formatLocalPrice } = usePricing();
   const { country, isMalawi } = useLocation();
   const navigate = useNavigate();
+  // Enhanced processing state with status tracking
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
+  const [processingStep, setProcessingStep] = useState(0);
+  const processingSteps = [
+    'Validating cart items...',
+    'Checking inventory...',
+    'Preparing payment session...',
+    'Redirecting to payment gateway...'
+  ];
   // Payment method auto-selected based on location
   const [selectedPayment, setSelectedPayment] = useState(isMalawi ? 'paychangu' : 'square');
   const [userCountry, setUserCountry] = useState('');
@@ -584,8 +593,14 @@ const CartModal = ({ open, onClose, gadget }) => {
     if (!stockOk) return;
 
     setIsProcessing(true);
+    setProcessingStep(0);
+    setProcessingStatus(processingSteps[0]);
 
     try {
+      // Step 1: Validate cart items
+      setProcessingStep(1);
+      setProcessingStatus(processingSteps[1]);
+      
       // Record checkout_start event for analytics
       const sid = (typeof window !== 'undefined') ? localStorage.getItem('xp_analytics_sid') : null;
       if (sid) {
@@ -626,6 +641,10 @@ const CartModal = ({ open, onClose, gadget }) => {
         variantId: items.find(ci => ci.id === it.id)?.variantId || undefined
       }));
       
+      // Step 2: Prepare payment session
+      setProcessingStep(2);
+      setProcessingStatus(processingSteps[2]);
+      
       let session;
       const paymentCurrency = isMalawi ? 'MWK' : 'GBP';
       const subscriptionToInclude = selectedSubscription !== 'none' && !hasSubscription ? selectedSubscription : null;
@@ -661,6 +680,10 @@ const CartModal = ({ open, onClose, gadget }) => {
         throw new Error(msg);
       }
 
+      // Step 3: Redirect to payment gateway
+      setProcessingStep(3);
+      setProcessingStatus(processingSteps[3]);
+      
       const checkoutUrl = session.url || session.checkout_url;
       // Cache checkout details for email notification on success page
       try {
@@ -674,14 +697,21 @@ const CartModal = ({ open, onClose, gadget }) => {
           subscriptionTier: subscriptionToInclude
         }));
       } catch (_) {}
-      window.location.href = checkoutUrl;
-      clearCart();
-      onClose();
+      
+      // Keep processing overlay visible during redirection
+      // Modal stays open to prevent user confusion during page redirect
+      setTimeout(() => {
+        window.location.href = checkoutUrl;
+        clearCart();
+        // Don't close modal - let it remain visible during redirect
+      }, 800);
+      
     } catch (error) {
       console.error('Checkout error:', error);
       alert('Checkout failed. Please try again.');
-    } finally {
       setIsProcessing(false);
+      setProcessingStatus('');
+      setProcessingStep(0);
     }
   };
 
@@ -1473,6 +1503,127 @@ const CartModal = ({ open, onClose, gadget }) => {
         actionLabel="Sign In"
         onAction={() => navigate('/signin')}
       />
+      
+      {/* Processing Modal */}
+      <Dialog
+        open={isProcessing}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#0d2137',
+            color: 'white',
+            borderRadius: '20px',
+            textAlign: 'center',
+            p: 3
+          }
+        }}
+      >
+        <DialogContent sx={{ py: 4 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+            {/* Animated Spinner */}
+            <Box sx={{
+              width: 60,
+              height: 60,
+              border: '4px solid rgba(72, 206, 219, 0.3)',
+              borderTop: '4px solid #48CEDB',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              '@keyframes spin': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' }
+              }
+            }} />
+            
+            {/* Status Message */}
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#48CEDB' }}>
+              Processing Order
+            </Typography>
+            
+            {/* Dynamic Status */}
+            <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.9)', minHeight: '1.5em' }}>
+              {processingStatus}
+            </Typography>
+            
+            {/* Progress Steps */}
+            <Box sx={{ width: '100%', maxWidth: 300 }}>
+              {processingSteps.map((step, index) => (
+                <Box 
+                  key={index}
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    mb: 1.5,
+                    opacity: index <= processingStep ? 1 : 0.4
+                  }}
+                >
+                  <Box sx={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: '50%',
+                    bgcolor: index < processingStep 
+                      ? '#48CEDB' 
+                      : index === processingStep 
+                        ? 'rgba(72, 206, 219, 0.3)' 
+                        : 'rgba(255,255,255,0.1)',
+                    border: index === processingStep 
+                      ? '2px solid #48CEDB' 
+                      : '2px solid transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mr: 2,
+                    transition: 'all 0.3s ease'
+                  }}>
+                    {index < processingStep ? (
+                      <CheckCircleIcon sx={{ color: '#0d2137', fontSize: 16 }} />
+                    ) : index === processingStep ? (
+                      <Box sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        bgcolor: '#48CEDB',
+                        animation: 'pulse 1.5s ease-in-out infinite'
+                      }} />
+                    ) : null}
+                  </Box>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      color: index <= processingStep ? 'white' : 'rgba(255,255,255,0.5)',
+                      fontWeight: index === processingStep ? 600 : 400
+                    }}
+                  >
+                    {step}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+            
+            {/* Loading Bar */}
+            <Box sx={{ width: '100%', maxWidth: 300, mt: 1 }}>
+              <Box sx={{
+                height: 6,
+                bgcolor: 'rgba(255,255,255,0.1)',
+                borderRadius: 3,
+                overflow: 'hidden'
+              }}>
+                <Box sx={{
+                  height: '100%',
+                  width: `${((processingStep + 1) / processingSteps.length) * 100}%`,
+                  bgcolor: '#48CEDB',
+                  borderRadius: 3,
+                  transition: 'width 0.5s ease',
+                  boxShadow: '0 0 10px rgba(72, 206, 219, 0.5)'
+                }} />
+              </Box>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mt: 1, display: 'block' }}>
+                {Math.round(((processingStep + 1) / processingSteps.length) * 100)}% Complete
+              </Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };

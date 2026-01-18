@@ -63,6 +63,14 @@ const MainNav = ({title, toggle, setToggle, mobileOnTablet = true}) => {
   };
 
     return (
+        <>
+        {/* TEMPORARY CONSTRUCTION BANNER - REMOVE LATER */}
+        <div className="w-screen -ml-[calc(50vw-50%)] bg-black text-white text-center py-2">
+          <p className="text-sm sm:text-base font-semibold">
+            ⚠️ Sorry, please don't attempt purchases — the website is under construction
+          </p>
+        </div>
+        {/* END CONSTRUCTION BANNER */}
         <nav className="w-full flex py-4 px-2 sm:py-6 sm:px-4 justify-between items-center navbar relative z-50">
       {/* Logo */}
       <Link to="/" className="flex-shrink-0">
@@ -283,6 +291,7 @@ const MainNav = ({title, toggle, setToggle, mobileOnTablet = true}) => {
       />
     
     </nav>
+        </>
     )
 }
 export default MainNav;

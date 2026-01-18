@@ -27,6 +27,8 @@ import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { usePricing } from '../hooks/usePricing';
+import { convertMwkToGbp } from '../services/currencyService';
 import { tradeInAPI } from '../services/api.js';
 
 const statusColor = (status) => {
@@ -70,6 +72,7 @@ const offerTypes = [
 
 export default function AdminTradeIns() {
   const { isAdmin } = useAuth();
+  const { isInMalawi } = usePricing();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
@@ -94,6 +97,16 @@ export default function AdminTradeIns() {
   useEffect(() => {
     if (isAdmin()) load();
   }, []);
+
+  const formatValue = (mwkValue) => {
+    const num = Number(mwkValue);
+    if (!Number.isFinite(num)) return '—';
+    if (isInMalawi) {
+      return `MWK ${Math.round(num).toLocaleString('en-MW')}`;
+    }
+    const gbp = convertMwkToGbp(num);
+    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(gbp);
+  };
 
   const filtered = useMemo(() => {
     if (!filter) return rows;
@@ -193,8 +206,8 @@ export default function AdminTradeIns() {
                         size="small" 
                       />
                     </TableCell>
-                    <TableCell>{r.estimated_value ? `MWK ${Number(r.estimated_value).toLocaleString()}` : '—'}</TableCell>
-                    <TableCell>{r.final_value ? `MWK ${Number(r.final_value).toLocaleString()}` : '—'}</TableCell>
+                    <TableCell>{r.estimated_value ? formatValue(r.estimated_value) : '—'}</TableCell>
+                    <TableCell>{r.final_value ? formatValue(r.final_value) : '—'}</TableCell>
                     <TableCell>
                       <Chip label={r.status} color={statusColor(r.status)} size="small" />
                     </TableCell>

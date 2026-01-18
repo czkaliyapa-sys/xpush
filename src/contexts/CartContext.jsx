@@ -49,7 +49,7 @@ const cartReducer = (state, action) => {
               ? { ...item, number: liveStock, quantity: Math.max(0, Math.min(item.quantity || 0, liveStock)) }
               : item
           )
-          .filter(item => item.quantity > 0)
+          .filter(item => item.quantity > 0 || item.isPreOrder) // Keep pre-order items even with 0 quantity
       };
     }
 
@@ -203,7 +203,9 @@ export const CartProvider = ({ children }) => {
       } else {
         price = parseFloat(item.price) || 0;
       }
-      return total + (price * item.quantity);
+      // Pre-order items should count as quantity 1 even if stock sync set quantity to 0
+      const effectiveQuantity = item.isPreOrder ? Math.max(1, item.quantity) : item.quantity;
+      return total + (price * effectiveQuantity);
     }, 0);
   };
 

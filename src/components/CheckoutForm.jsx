@@ -57,9 +57,9 @@ const CheckoutForm = ({ gadget, onSuccess, onCancel }) => {
       return;
     }
 
-    setLoading(true);
     setError(null);
     setProcessing(true);
+    setLoading(true);
 
     try {
       const storageOptions = Array.isArray(gadget?.specifications?.storage) ? gadget.specifications.storage.filter(Boolean) : [];
@@ -85,16 +85,16 @@ const CheckoutForm = ({ gadget, onSuccess, onCancel }) => {
       if (isMalawi) {
         // Use PayChangu for Malawi (MWK)
         response = await paymentsAPI.createCheckoutSession(payloadItems, {
-          successUrl: 'https://itsxtrapush.com/payment/success',
-          cancelUrl: 'https://itsxtrapush.com/payment/cancel',
+          successUrl: process.env.REACT_APP_PAYMENT_SUCCESS_URL || 'https://itsxtrapush.com/payment/success',
+          cancelUrl: process.env.REACT_APP_PAYMENT_CANCEL_URL || 'https://itsxtrapush.com/payment/cancel',
           customerEmail: user?.email || undefined,
           currency: 'MWK'
         });
       } else {
         // Use Square for international (GBP)
         response = await paymentsAPI.createSquareCheckout(payloadItems, {
-          successUrl: 'https://itsxtrapush.com/payment/success',
-          cancelUrl: 'https://itsxtrapush.com/payment/cancel',
+          successUrl: process.env.REACT_APP_PAYMENT_SUCCESS_URL || 'https://itsxtrapush.com/payment/success',
+          cancelUrl: process.env.REACT_APP_PAYMENT_CANCEL_URL || 'https://itsxtrapush.com/payment/cancel',
           customerEmail: user?.email || undefined,
           currency: 'GBP'
         });
@@ -122,14 +122,15 @@ const CheckoutForm = ({ gadget, onSuccess, onCancel }) => {
           currency: paymentCurrency
         }));
       } catch (_) {}
+      // Keep processing state active during redirection
       window.location.href = checkoutUrl;
 
     } catch (err) {
       console.error('Payment error:', err);
       setError(err.message || 'An error occurred during payment processing.');
-    } finally {
-      setLoading(false);
+      // Clear states on error
       setProcessing(false);
+      setLoading(false);
     }
   };
 

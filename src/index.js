@@ -13,6 +13,7 @@ import { WishlistProvider } from './contexts/WishlistContext.jsx';
 import { LocationProvider } from './contexts/LocationContext.jsx';
 import OnboardingWrapper from './components/OnboardingWrapper.jsx';
 import analytics from './utils/analytics';
+import { ToastProvider } from './components/ToastProvider.jsx';
 import { RequireAuth } from './components/RouteGuards.jsx';
 import Layout from './components/Layout.jsx';
 
@@ -110,9 +111,11 @@ root.render(
         <LocationProvider>
           <CartProvider>
             <WishlistProvider>
-              <BrowserRouter>
-                <AnimatedRoutes />
-              </BrowserRouter>
+              <ToastProvider>
+                <BrowserRouter>
+                  <AnimatedRoutes />
+                </BrowserRouter>
+              </ToastProvider>
             </WishlistProvider>
           </CartProvider>
         </LocationProvider>

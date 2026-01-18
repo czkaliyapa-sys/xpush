@@ -1,0 +1,103 @@
+{
+    "analysis_run": "2026-01-17 16:26:10",
+    "api_base_url": "https:\/\/sparkle-pro.co.uk\/api",
+    "results": [
+        {
+            "timestamp": "2026-01-17 16:26:09",
+            "category": "CORE",
+            "test": "API Health",
+            "status": "PASS",
+            "message": "API is responding"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "CORE",
+            "test": "Gadgets Listing",
+            "status": "PASS",
+            "message": "Returns 46 gadgets"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "CORE",
+            "test": "Categories",
+            "status": "FAIL",
+            "message": "HTTP 404 - Invalid response"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "AUTH",
+            "test": "User Registration",
+            "status": "FAIL",
+            "message": "HTTP 404 - Endpoint not responding"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "AUTH",
+            "test": "User Login",
+            "status": "FAIL",
+            "message": "HTTP 404 - Endpoint not responding"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "PAYMENT",
+            "test": "Payment Providers",
+            "status": "WARN",
+            "message": "HTTP 404 - May not be implemented"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "PAYMENT",
+            "test": "Currency Rates",
+            "status": "WARN",
+            "message": "HTTP 404 - Currency endpoint not available"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "DEVICE",
+            "test": "Recent Devices",
+            "status": "FAIL",
+            "message": "HTTP 500 - Database query issue"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "DEVICE",
+            "test": "Get Linked Device",
+            "status": "PASS",
+            "message": "Endpoint working correctly"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "DEVICE",
+            "test": "Link Device",
+            "status": "PASS",
+            "message": "Linking endpoint responsive"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "DEVICE",
+            "test": "Unlink Device",
+            "status": "PASS",
+            "message": "Unlinking successful"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "SUBSCRIPTION",
+            "test": "Status Check",
+            "status": "WARN",
+            "message": "HTTP 400 - May require auth"
+        },
+        {
+            "timestamp": "2026-01-17 16:26:10",
+            "category": "ANALYTICS",
+            "test": "Statistics",
+            "status": "WARN",
+            "message": "HTTP 404 - Analytics not available"
+        }
+    ],
+    "summary": {
+        "total_tests": 13,
+        "passed": 5,
+        "failed": 4,
+        "warnings": 4
+    }
+}

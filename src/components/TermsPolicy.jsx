@@ -31,6 +31,7 @@ const PolicyCard = styled(Card)(({ theme }) => ({
   color: '#ffffff',
   border: '1px solid rgba(255, 255, 255, 0.12)',
   backdropFilter: 'blur(10px)',
+  width: '100%',
   '&:hover': {
     borderColor: '#48CEDB',
     boxShadow: theme.shadows[4]
@@ -49,7 +50,7 @@ const SectionHeader = styled(Typography)(({ theme }) => ({
 const TermsPolicy = () => {
   const { isMalawi } = useLocation();
   return (
-    <Container maxWidth="lg" sx={{ py: 6 }}>
+    <Container maxWidth="lg" sx={{ py: 6, px: { xs: 2, sm: 3 } }}>
       {/* Header */}
       <Box textAlign="center" mb={4}>
         <Typography 
@@ -73,7 +74,7 @@ const TermsPolicy = () => {
         <Paper sx={{ p: 2, bgcolor: 'rgba(72, 206, 219, 0.1)', border: '1px solid rgba(72, 206, 219, 0.3)', borderRadius: 2 }}>
           <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
             These Terms & Conditions govern the purchase of gadgets through <strong>Xtrapush</strong> either via instalment payments or direct checkout. 
-            By placing an order or using our services, you agree to these Terms. Please read them carefully. If you do not agree, do not proceed with an order.
+            By placing an order or using Xtrapush Gadgets Pay to Lease / Pay as You Go, you agree to these Terms. Please read them carefully. If you do not agree, do not proceed with an order.
           </Typography>
         </Paper>
       </Box>
@@ -148,7 +149,7 @@ const TermsPolicy = () => {
         <CardContent>
           <SectionHeader variant="h5">2. Eligibility</SectionHeader>
           <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.85)', mb: 2 }}>
-            To use Xtrapush Gadgets services, you must:
+            To use Xtrapush Gadgets Pay to Lease / Pay as You Go, you must:
           </Typography>
           <List>
             <ListItem>

@@ -54,6 +54,8 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import { tradeInAPI, gadgetsAPI } from '../services/api';
+import { useToast } from './ToastProvider.jsx';
+import { handleError, componentErrorHandlers } from '../utils/errorHandler.js';
 
 const TradeInCard = styled(Card)(({ theme }) => ({
   height: '100%',
@@ -123,6 +125,7 @@ const ImagePreview = styled(Box)(({ theme }) => ({
 }));
 
 const TradeInSection = () => {
+  const { showError, showSuccess, showWarning } = useToast();
   // Glass styling for form inputs
   const textFieldSx = {
     '& .MuiOutlinedInput-root': {
@@ -483,8 +486,9 @@ const TradeInSection = () => {
         setUploadProgress(((i + 1) / totalFiles) * 100);
       }
     } catch (error) {
-      console.error('Image upload error:', error);
-      setSubmitError(error.message || 'Failed to process images');
+      const errorMessage = handleError(error, 'Image upload failed', true);
+      showError(errorMessage);
+      setSubmitError(componentErrorHandlers.tradeIn.IMAGE_UPLOAD_FAILED);
     } finally {
       setUploadingImages(false);
       setUploadProgress(0);
@@ -549,8 +553,8 @@ const TradeInSection = () => {
         }
         throw new Error(data.error || 'Upload failed');
       } catch (error) {
-        console.error('Image upload error:', error);
-        return { ...img, uploaded: false, error: error.message };
+        const errorMessage = handleError(error, 'Server image upload failed', false);
+        return { ...img, uploaded: false, error: errorMessage };
       }
     });
     
@@ -586,7 +590,8 @@ const TradeInSection = () => {
           setPricingBreakdown(data.breakdown);
         }
       } catch (error) {
-        console.error('Estimate update error:', error);
+        const errorMessage = handleError(error, 'Estimate update failed', false);
+        // Silently fail for estimate updates - don't show user-facing errors
       }
     }, 800);
     
@@ -740,11 +745,14 @@ const TradeInSection = () => {
         setSnackbarOpen(true);
         setActiveStep(6); // Success step
       } else {
-        setSubmitError(response.error || 'Failed to submit trade-in request. Please try again.');
+        const errorMessage = response.error || componentErrorHandlers.tradeIn.SUBMISSION_FAILED;
+        showError(errorMessage);
+        setSubmitError(errorMessage);
       }
     } catch (error) {
-      console.error('Trade-in submission error:', error);
-      setSubmitError(error.message || 'An unexpected error occurred. Please try again later.');
+      const errorMessage = handleError(error, 'Trade-in submission failed', true);
+      showError(errorMessage);
+      setSubmitError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

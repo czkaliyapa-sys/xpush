@@ -8,6 +8,8 @@ export const LocationProvider = ({ children }) => {
     countryCode: null,
     currency: 'GBP',
     isInMalawi: false,
+    // Alias maintained for legacy components (e.g., AboutPage)
+    isMalawi: false,
     loading: true,
     error: null,
   });
@@ -138,6 +140,7 @@ export const LocationProvider = ({ children }) => {
           countryCode: result.countryCode,
           currency,
           isInMalawi,
+          isMalawi: isInMalawi,
           loading: false,
           error: null,
         };
@@ -168,6 +171,7 @@ export const LocationProvider = ({ children }) => {
           ...prev,
           currency: 'GBP',
           isInMalawi: false,
+          isMalawi: false,
           loading: false,
           error: err.message,
         }));
@@ -178,8 +182,13 @@ export const LocationProvider = ({ children }) => {
   }, []);
 
   const updateLocation = (newLocation) => {
-    setLocation(newLocation);
-    localStorage.setItem('userLocation', JSON.stringify(newLocation));
+    const normalized = {
+      ...newLocation,
+      isMalawi: typeof newLocation.isMalawi === 'boolean' ? newLocation.isMalawi : !!newLocation.isInMalawi,
+      isInMalawi: typeof newLocation.isInMalawi === 'boolean' ? newLocation.isInMalawi : !!newLocation.isMalawi,
+    };
+    setLocation(normalized);
+    localStorage.setItem('userLocation', JSON.stringify(normalized));
   };
 
   return (
@@ -195,5 +204,12 @@ export const useLocation = () => {
     throw new Error('useLocation must be used within LocationProvider');
   }
   // Spread location properties for easier access
-  return { ...context.location, updateLocation: context.updateLocation };
+  const loc = context.location || {};
+  return {
+    ...loc,
+    // Ensure both flags are always available
+    isMalawi: typeof loc.isMalawi === 'boolean' ? loc.isMalawi : !!loc.isInMalawi,
+    isInMalawi: typeof loc.isInMalawi === 'boolean' ? loc.isInMalawi : !!loc.isMalawi,
+    updateLocation: context.updateLocation,
+  };
 };

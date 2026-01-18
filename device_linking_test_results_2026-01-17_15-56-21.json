@@ -1,0 +1,48 @@
+{
+    "test_run": "2026-01-17 15:56:21",
+    "api_base_url": "http:\/\/localhost\/sparkle-pro-api",
+    "test_user_id": "test_user_1768665381",
+    "results": [
+        {
+            "timestamp": "2026-01-17 15:56:21",
+            "status": "FAIL",
+            "message": "API health check failed: HTTP 0"
+        },
+        {
+            "timestamp": "2026-01-17 15:56:21",
+            "status": "FAIL",
+            "message": "Recent devices failed: HTTP 0 - "
+        },
+        {
+            "timestamp": "2026-01-17 15:56:21",
+            "status": "FAIL",
+            "message": "Get linked device failed: HTTP 0"
+        },
+        {
+            "timestamp": "2026-01-17 15:56:21",
+            "status": "WARN",
+            "message": "Link device returned HTTP 0: "
+        },
+        {
+            "timestamp": "2026-01-17 15:56:21",
+            "status": "FAIL",
+            "message": "Get linked device failed: HTTP 0"
+        },
+        {
+            "timestamp": "2026-01-17 15:56:21",
+            "status": "FAIL",
+            "message": "Unlink device failed: HTTP 0"
+        },
+        {
+            "timestamp": "2026-01-17 15:56:21",
+            "status": "FAIL",
+            "message": "Verification failed: HTTP 0"
+        }
+    ],
+    "summary": {
+        "total_tests": 7,
+        "passed": 0,
+        "failed": 6,
+        "warnings": 1
+    }
+}

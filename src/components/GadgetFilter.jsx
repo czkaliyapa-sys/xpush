@@ -79,7 +79,7 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
     brands: [],
     priceMin: 0,
     priceMax: maxPrice,
-    inStock: true,
+    inStock: null, // Default to show all products (in-stock + out-of-stock)
     condition: [], // Product condition (mapped to backend tokens on apply)
     warranty: [], // New: Warranty options (1 year, 2 years, etc.)
     rating: 0, // New: Minimum rating filter
@@ -324,6 +324,7 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
     if (filters.brands.length > 0) count++;
     if (filters.priceMin > 0 || filters.priceMax < maxPrice) count++;
     if (filters.inStock !== null) count++;
+    if (filters.condition.length > 0) count++;
     return count;
   };
 

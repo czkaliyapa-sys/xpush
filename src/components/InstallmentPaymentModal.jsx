@@ -14,7 +14,7 @@ import {
   TextField,
   useMediaQuery
 } from '@mui/material';
-import { Payment as PaymentIcon } from '@mui/icons-material';
+import { Payment as PaymentIcon, Check as CheckIcon } from '@mui/icons-material';
 import { paymentsAPI } from '../services/api.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { usePricing } from '../hooks/usePricing';
@@ -65,6 +65,13 @@ function extractPlan(order) {
 
 const InstallmentPaymentModal = ({ open, onClose, order, customerEmail, initialPayMode = 'weekly', initialCustomAmount = null }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
+  const [processingStep, setProcessingStep] = useState(0);
+  const processingSteps = [
+    'Preparing payment session...',
+    'Creating secure checkout...',
+    'Redirecting to payment gateway...'
+  ];
   const [error, setError] = useState('');
   const [payMode, setPayMode] = useState(initialPayMode); // 'weekly' | 'remaining' | 'custom'
   const [customAmount, setCustomAmount] = useState(() => {
@@ -104,9 +111,16 @@ const InstallmentPaymentModal = ({ open, onClose, order, customerEmail, initialP
         return;
       }
     }
+    setIsProcessing(true);
+    setProcessingStep(0);
+    setProcessingStatus(processingSteps[0]);
+    
     try {
-      setIsProcessing(true);
       setError('');
+
+      // Step 1: Prepare payment session
+      setProcessingStep(1);
+      setProcessingStatus(processingSteps[1]);
 
       const items = [
         {
@@ -131,13 +145,17 @@ const InstallmentPaymentModal = ({ open, onClose, order, customerEmail, initialP
 
       const options = {
         customerEmail: customerEmail || null,
-        successUrl: 'https://itsxtrapush.com/payment/success',
-        cancelUrl: 'https://itsxtrapush.com/payment/cancel',
+        successUrl: process.env.REACT_APP_PAYMENT_SUCCESS_URL || 'https://itsxtrapush.com/payment/success',
+        cancelUrl: process.env.REACT_APP_PAYMENT_CANCEL_URL || 'https://itsxtrapush.com/payment/cancel',
         installmentPlan,
         currency: currency
       };
 
       const res = await paymentsAPI.createCheckoutSession(items, options);
+
+      // Step 2: Redirect to payment gateway
+      setProcessingStep(2);
+      setProcessingStatus(processingSteps[2]);
 
       if (res?.success && res?.url) {
         try {
@@ -147,6 +165,7 @@ const InstallmentPaymentModal = ({ open, onClose, order, customerEmail, initialP
             customerEmail: customerEmail || null
           }));
         } catch (_) {}
+        // Keep processing overlay visible during redirection
         window.location.href = res.url;
       } else if (res?.url) {
         try {
@@ -156,22 +175,27 @@ const InstallmentPaymentModal = ({ open, onClose, order, customerEmail, initialP
             customerEmail: customerEmail || null
           }));
         } catch (_) {}
+        // Keep processing overlay visible during redirection
         window.location.href = res.url;
       } else {
         setError(res?.error || 'Failed to create checkout session');
+        setIsProcessing(false);
       }
     } catch (e) {
       console.error('Installment payment checkout failed:', e);
       const data = e?.response?.data;
       setError(data?.details || data?.error || e?.message || 'Unexpected error');
-    } finally {
+      // Clear processing state on error
       setIsProcessing(false);
+      setProcessingStatus('');
+      setProcessingStep(0);
     }
   };
 
   if (!open) return null;
 
   return (
+    <>
     <Dialog
       open={open}
       onClose={onClose}
@@ -267,9 +291,133 @@ const InstallmentPaymentModal = ({ open, onClose, order, customerEmail, initialP
       </DialogContent>
       <DialogActions sx={{ p: 2 }}>
         <Button onClick={onClose} variant="contained" disabled={isProcessing} sx={{ bgcolor: '#000', color: 'white', '&:hover': { bgcolor: '#111' } }}>Cancel</Button>
-        <Button variant="contained" onClick={handleProceed} disabled={isProcessing || disabled || payAmount <= 0} sx={{ bgcolor: '#000', color: 'white', '&:hover': { bgcolor: '#111' } }}>Proceed</Button>
+        <Button variant="contained" onClick={handleProceed} disabled={isProcessing || disabled || payAmount <= 0} sx={{ bgcolor: '#000', color: 'white', '&:hover': { bgcolor: '#111' } }}>
+          {isProcessing ? 'Processing...' : 'Proceed'}
+        </Button>
       </DialogActions>
     </Dialog>
+    
+    {/* Processing Modal */}
+    <Dialog
+      open={isProcessing}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{
+        sx: {
+          bgcolor: '#1565c0',
+          color: 'white',
+          borderRadius: '20px',
+          textAlign: 'center',
+          p: 3
+        }
+      }}
+    >
+      <DialogContent sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+          {/* Animated Spinner */}
+          <Box sx={{
+            width: 60,
+            height: 60,
+            border: '4px solid rgba(255, 255, 255, 0.3)',
+            borderTop: '4px solid white',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            '@keyframes spin': {
+              '0%': { transform: 'rotate(0deg)' },
+              '100%': { transform: 'rotate(360deg)' }
+            }
+          }} />
+          
+          {/* Status Message */}
+          <Typography variant="h6" sx={{ fontWeight: 600, color: 'white' }}>
+            Processing Payment
+          </Typography>
+          
+          {/* Dynamic Status */}
+          <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.9)', minHeight: '1.5em' }}>
+            {processingStatus}
+          </Typography>
+          
+          {/* Progress Steps */}
+          <Box sx={{ width: '100%', maxWidth: 300 }}>
+            {processingSteps.map((step, index) => (
+              <Box 
+                key={index}
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  mb: 1.5,
+                  opacity: index <= processingStep ? 1 : 0.4
+                }}
+              >
+                <Box sx={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  bgcolor: index < processingStep 
+                    ? 'white' 
+                    : index === processingStep 
+                      ? 'rgba(255, 255, 255, 0.3)' 
+                      : 'rgba(255,255,255,0.1)',
+                  border: index === processingStep 
+                    ? '2px solid white' 
+                    : '2px solid transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mr: 2,
+                  transition: 'all 0.3s ease'
+                }}>
+                  {index < processingStep ? (
+                    <CheckIcon sx={{ color: '#1565c0', fontSize: 16 }} />
+                  ) : index === processingStep ? (
+                    <Box sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      bgcolor: 'white',
+                      animation: 'pulse 1.5s ease-in-out infinite'
+                    }} />
+                  ) : null}
+                </Box>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    color: index <= processingStep ? 'white' : 'rgba(255,255,255,0.5)',
+                    fontWeight: index === processingStep ? 600 : 400
+                  }}
+                >
+                  {step}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+          
+          {/* Loading Bar */}
+          <Box sx={{ width: '100%', maxWidth: 300, mt: 1 }}>
+            <Box sx={{
+              height: 6,
+              bgcolor: 'rgba(255,255,255,0.1)',
+              borderRadius: 3,
+              overflow: 'hidden'
+            }}>
+              <Box sx={{
+                height: '100%',
+                width: `${((processingStep + 1) / processingSteps.length) * 100}%`,
+                bgcolor: 'white',
+                borderRadius: 3,
+                transition: 'width 0.5s ease',
+                boxShadow: '0 0 10px rgba(255, 255, 255, 0.5)'
+              }} />
+            </Box>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mt: 1, display: 'block' }}>
+              {Math.round(((processingStep + 1) / processingSteps.length) * 100)}% Complete
+            </Typography>
+          </Box>
+        </Box>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 

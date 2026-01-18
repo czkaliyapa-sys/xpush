@@ -151,13 +151,201 @@ const UserDashboard = () => {
     return typeof price === 'string' ? Number(price.replace(/[^0-9.]/g, '')) : Number(price) || 0;
   };
 
-  // Helper function to format currency based on location
-  const formatCurrency = (amount) => {
-    if (!amount && amount !== 0) return `${userCurrency} N/A`;
+  // OPTIMIZED: Enhanced order item processing with better data handling
+  const processOrderItemsEnhanced = (order) => {
+    // Priority order for item data sources - most reliable first
+    const itemSources = [
+      // 1. Direct items array (most reliable)
+      order.items,
+        
+      // 2. Cart data
+      order.cart,
+        
+      // 3. Parse from notes (fallback)
+      (() => {
+        try {
+          const notes = typeof order.notes === 'string' ? 
+            JSON.parse(order.notes) : order.notes;
+            
+          // Try multiple note structures
+          return notes?.items || 
+                 notes?.items_details || 
+                 notes?.cart || 
+                 notes?.order_items || 
+                 [];
+        } catch (e) {
+          console.warn('Could not parse order items from notes for order:', order.id);
+          return [];
+        }
+      })()
+    ];
+  
+    // Find the first valid item source with actual data
+    const rawItems = itemSources.find(source => 
+      Array.isArray(source) && source.length > 0
+    ) || [];
+  
+    // Process and normalize items with comprehensive fallbacks
+    return rawItems.map(item => {
+      // Handle different item ID formats
+      const itemId = item.id || 
+                    item.gadget_id || 
+                    item.gadgetId || 
+                    item.itemId || 
+                    item.product_id ||
+                    null;
+  
+      // Comprehensive name resolution with multiple fallbacks
+      const itemName = item.name || 
+                      item.title || 
+                      item.productName || 
+                      item.gadgetName || 
+                      'Unknown Item';
+  
+      // Brand with fallbacks
+      const itemBrand = item.brand || 
+                       item.manufacturer || 
+                       item.make || 
+                       '';
+  
+      // Model with fallbacks
+      const itemModel = item.model || 
+                       item.variant || 
+                       item.spec || 
+                       '';
+  
+      // Description hierarchy
+      const itemDescription = item.description || 
+                             item.desc || 
+                             item.details || 
+                             '';
+  
+      // Image with multiple fallback sources
+      const itemImage = item.image || 
+                       item.imageUrl || 
+                       item.image_url || 
+                       item.photo || 
+                       item.thumbnail || 
+                       '';
+  
+      // Category with fallbacks
+      const itemCategory = item.category || 
+                          item.type || 
+                          item.class || 
+                          '';
+  
+      // Storage specification
+      const itemStorage = item.storage || 
+                         item.capacity || 
+                         item.size || 
+                         '';
+  
+      // Color specification
+      const itemColor = item.color || 
+                       item.colour || 
+                       '';
+  
+      // Condition specification
+      const itemCondition = item.condition || 
+                           item.quality || 
+                           item.state || 
+                           '';
+  
+      // Price resolution with currency awareness
+      const baseUnitPrice = item.unitPrice || 
+                           item.price || 
+                           item.unit_price || 
+                           0;
+  
+      const baseTotalPrice = item.totalPrice || 
+                            item.total || 
+                            item.total_price || 
+                            (baseUnitPrice * (item.quantity || 1));
+  
+      // Quantity with proper defaults
+      const itemQuantity = Math.max(1, parseInt(item.quantity) || 1);
+  
+      return {
+        id: itemId,
+        name: itemName,
+        brand: itemBrand,
+        model: itemModel,
+        description: itemDescription,
+        image: itemImage,
+        category: itemCategory,
+        quantity: itemQuantity,
+        unitPrice: parseFloat(baseUnitPrice) || 0,
+        totalPrice: parseFloat(baseTotalPrice) || 0,
+        storage: itemStorage,
+        color: itemColor,
+        condition: itemCondition,
+          
+        // Preserve original data for debugging
+        _original: item
+      };
+    });
+  };
+  
+  // Enhanced currency formatter with better precision handling
+  // Admin-specific currency formatter
+  const formatAdminCurrency = (amount, currencyType = 'gbp') => {
+    if (!amount || isNaN(amount)) return userCurrency === 'MWK' ? 'MWK 0' : '£0.00';
+    
+    const numAmount = parseFloat(amount);
+    
+    if (userCurrency === 'MWK') {
+      if (currencyType === 'gbp') {
+        // Convert GBP to MWK (approximate rate)
+        return `MWK ${(numAmount * 1100).toLocaleString('en-MW')}`;
+      } else {
+        return `MWK ${numAmount.toLocaleString('en-MW')}`;
+      }
+    } else {
+      if (currencyType === 'gbp') {
+        return `£${numAmount.toFixed(2)}`;
+      } else {
+        // Convert MWK to GBP (approximate rate)
+        return `£${(numAmount / 1100).toFixed(2)}`;
+      }
+    }
+  };
+
+  const formatCurrencyEnhanced = (amount, currencyCode = null) => {
+    const displayCurrency = currencyCode || userCurrency;
+      
+    if (amount === null || amount === undefined) {
+      return displayCurrency + ' N/A';
+    }
+      
     const num = Number(amount);
-    if (!Number.isFinite(num)) return `${userCurrency} N/A`;
-    // Use pricing formatter for locale-aware output
-    return formatLocalPrice ? formatLocalPrice(num) : `${userCurrency} ${Math.round(num).toLocaleString()}`;
+    if (!Number.isFinite(num)) {
+      return displayCurrency + ' Invalid';
+    }
+      
+    // Better precision handling
+    if (displayCurrency === 'GBP') {
+      return '£' + num.toFixed(2);
+    } else {
+      // MWK formatting with thousands separator
+      return 'MWK ' + Math.round(num).toLocaleString('en-US');
+    }
+  };
+  
+  // Helper function to format currency based on order currency or user location
+  const formatCurrency = (amount, orderCurrency = null) => {
+    // Use order currency if provided, otherwise fall back to user currency
+    const displayCurrency = orderCurrency || userCurrency;
+      
+    if (!amount && amount !== 0) return `${displayCurrency} N/A`;
+    const num = Number(amount);
+    if (!Number.isFinite(num)) return `${displayCurrency} N/A`;
+      
+    // Format based on the actual currency being displayed
+    if (displayCurrency === 'GBP') {
+      return '£' + num.toFixed(2);
+    } else {
+      return 'MWK ' + Math.round(num).toLocaleString();
+    }
   };
 
   const [dashboardData, setDashboardData] = useState({
@@ -200,8 +388,8 @@ const UserDashboard = () => {
     const ql = q.toLowerCase();
     const gadgetMatches = (dashboardData.allGadgets || []).filter(g => (
       (g.name || '').toLowerCase().includes(ql) || (g.brand || '').toLowerCase().includes(ql)
-    )).slice(0, 6).map(g => ({ type: 'gadget', id: g.id, label: `${g.brand || ''} ${g.name || ''}`.trim(), href: `/gadgets/${g.id}` }));
-    const orderMatches = (dashboardData.orders || []).filter(o => String(o.id || '').includes(q)).slice(0, 4).map(o => ({ type: 'order', id: o.id, label: `Order #${o.id}`, href: `/dashboard/orders/${o.id}` }));
+    )).slice(0, 6).map(g => ({ type: 'gadget', id: g.id, label: (g.brand || '') + ' ' + (g.name || '').trim(), href: '/gadgets/' + g.id }));
+    const orderMatches = (dashboardData.orders || []).filter(o => String(o.id || '').includes(q)).slice(0, 4).map(o => ({ type: 'order', id: o.id, label: 'Order #' + o.id, href: '/dashboard/orders/' + o.id }));
     const result = [...gadgetMatches, ...orderMatches];
     setSearchResults(result);
   };
@@ -348,7 +536,8 @@ const UserDashboard = () => {
       const currentTier = dashboardData.subscription.tier;
       
       if (currentTier === tier) {
-        alert(`You already have an active ${tier === 'premium' ? 'Premium' : 'Plus'} subscription`);
+        const tierName = tier === 'premium' ? 'Premium' : 'Plus';
+        alert('You already have an active ' + tierName + ' subscription');
         return;
       }
       
@@ -418,7 +607,7 @@ const UserDashboard = () => {
     } catch (err) {
       console.error('Subscription error:', err);
       const errorMsg = err?.message || err?.error || 'Unknown error';
-      alert(`Failed to start subscription: ${errorMsg}`);
+      alert('Failed to start subscription: ' + errorMsg);
     }
   };
 
@@ -458,7 +647,7 @@ const UserDashboard = () => {
       }
     } catch (err) {
       console.error('Square card subscription error:', err);
-      alert(`Failed to complete subscription: ${err?.message || 'Unknown error'}`);
+      alert('Failed to complete subscription: ' + (err?.message || 'Unknown error'));
       // Keep modal open so user can try again
     }
   };
@@ -470,7 +659,7 @@ const UserDashboard = () => {
   };
 
   const handleCancelTradeIn = async (tradeIn) => {
-    if (!window.confirm(`Are you sure you want to cancel trade-in application #${tradeIn.reference}?`)) {
+    if (!window.confirm('Are you sure you want to cancel trade-in application #' + tradeIn.reference + '?')) {
       return;
     }
 
@@ -486,7 +675,7 @@ const UserDashboard = () => {
       }
     } catch (err) {
       console.error('Cancel trade-in error:', err);
-      alert(`Failed to cancel trade-in: ${err?.message || 'Unknown error'}`);
+      alert('Failed to cancel trade-in: ' + (err?.message || 'Unknown error'));
     } finally {
       setCancellingTradeIn(false);
     }
@@ -578,9 +767,9 @@ const UserDashboard = () => {
 
         const recentActivity = [];
         recentActivity.push(...orders.slice(0, 3).map((order, index) => ({
-          id: `order-${order.id || index}`,
-          title: `Order #${order.id || index + 1}`,
-          description: `Purchased ${order.items?.length || 1} item(s)`,
+          id: 'order-' + (order.id || index),
+          title: 'Order #' + (order.id || index + 1),
+          description: 'Purchased ' + (order.items?.length || 1) + ' item(s)',
           date: order.createdAt || new Date(Date.now() - index * 86400000).toISOString(),
           status: order.status || 'pending',
           amount: order.totalAmount || 0,
@@ -589,9 +778,9 @@ const UserDashboard = () => {
         
         installments.forEach((installment, index) => {
           recentActivity.push({
-            id: `installment-${installment.id || index}`,
-            title: `Installment Payment`,
-            description: `Payment for Order #${installment.orderId}`,
+            id: 'installment-' + (installment.id || index),
+            title: 'Installment Payment',
+            description: 'Payment for Order #' + installment.orderId,
             date: installment.nextDueDate || new Date().toISOString(),
             status: installment.status,
             amount: installment.weeklyAmount || 0,
@@ -606,18 +795,18 @@ const UserDashboard = () => {
         installments.forEach(installment => {
           if (installment.status === 'overdue') {
             notifications.push({
-              id: `notification-${installment.id}-overdue`,
+              id: 'notification-' + installment.id + '-overdue',
               title: 'Installment Payment Overdue',
-              message: `Payment for Order #${installment.orderId} is overdue. Please make payment as soon as possible.`,
+              message: 'Payment for Order #' + installment.orderId + ' is overdue. Please make payment as soon as possible.',
               date: new Date().toISOString(),
               type: 'warning',
               priority: 'high'
             });
           } else if (installment.remaining > 0) {
             notifications.push({
-              id: `notification-${installment.id}-upcoming`,
+              id: 'notification-' + installment.id + '-upcoming',
               title: 'Upcoming Payment Due',
-              message: `Next installment payment of ${formatCurrency(installment.weeklyAmount)} due soon for Order #${installment.orderId}.`,
+              message: 'Next installment payment of ' + formatCurrency(installment.weeklyAmount) + ' due soon for Order #' + installment.orderId + '.',
               date: installment.nextDueDate || new Date().toISOString(),
               type: 'info',
               priority: 'medium'
@@ -628,9 +817,9 @@ const UserDashboard = () => {
         orders.forEach(order => {
           if (order.status?.includes('shipped')) {
             notifications.push({
-              id: `notification-${order.id}-shipped`,
+              id: 'notification-' + order.id + '-shipped',
               title: 'Order Shipped',
-              message: `Your order #${order.id} has been shipped and is on its way.`,
+              message: 'Your order #' + order.id + ' has been shipped and is on its way.',
               date: order.updatedAt || new Date().toISOString(),
               type: 'info',
               priority: 'low'
@@ -670,8 +859,35 @@ const UserDashboard = () => {
         if (isAdmin()) {
           try {
             const analyticsRes = await analyticsAPI.getDashboardStats();
-            if (analyticsRes) {
-              adminAnalytics = analyticsRes;
+            if (analyticsRes?.data) {
+              // Transform backend data structure to match frontend expectations
+              const transformedData = {
+                ...analyticsRes.data,
+                // Transform revenue stats
+                revenue_stats: {
+                  total_revenue_gbp: analyticsRes.data.revenue_stats?.gbp?.total || 0,
+                  revenue_today_gbp: analyticsRes.data.revenue_stats?.gbp?.this_month || 0,
+                  total_revenue_mwk: analyticsRes.data.revenue_stats?.mwk?.total || 0,
+                  revenue_today_mwk: analyticsRes.data.revenue_stats?.mwk?.this_month || 0
+                },
+                // Transform subscription stats
+                subscription_stats: {
+                  active_subscriptions: parseInt(analyticsRes.data.subscription_stats?.active_count || 0),
+                  plus_subscribers: parseInt(analyticsRes.data.subscription_stats?.plus_count || 0),
+                  premium_subscribers: parseInt(analyticsRes.data.subscription_stats?.premium_count || 0),
+                  total_subscriptions: parseInt(analyticsRes.data.subscription_stats?.total_subscriptions || 0)
+                },
+                // Order stats are already correctly structured but ensure numeric parsing
+                order_stats: {
+                  total_orders: parseInt(analyticsRes.data.order_stats?.total_orders || 0),
+                  pending_orders: parseInt(analyticsRes.data.order_stats?.pending_orders || 0),
+                  completed_orders: parseInt(analyticsRes.data.order_stats?.completed_orders || 0),
+                  cancelled_orders: parseInt(analyticsRes.data.order_stats?.cancelled_orders || 0),
+                  dispatched_orders: parseInt(analyticsRes.data.order_stats?.dispatched_orders || 0),
+                  orders_this_month: parseInt(analyticsRes.data.order_stats?.orders_this_month || 0)
+                }
+              };
+              adminAnalytics = transformedData;
             }
           } catch (e) {
             console.warn('Failed to fetch admin analytics:', e);
@@ -754,8 +970,8 @@ const UserDashboard = () => {
         cursor: 'pointer',
         '&:hover': {
           transform: 'translateY(-6px)',
-          borderColor: '#3b82f6',
-          boxShadow: '0 16px 48px rgba(59, 130, 246, 0.25)'
+          borderColor: '#48cedb',
+          boxShadow: '0 16px 48px rgba(72, 206, 219, 0.3)'
         }
       }}
     >
@@ -871,7 +1087,7 @@ const UserDashboard = () => {
               </Typography>
             )}
           </Box>
-          <Avatar sx={{ bgcolor: `${color}22`, width: 56, height: 56, border: `2px solid ${color}33` }}>
+          <Avatar sx={{ bgcolor: color + '22', width: 56, height: 56, border: '2px solid ' + color + '33' }}>
             {React.cloneElement(icon, { sx: { color, fontSize: 28 } })}
           </Avatar>
         </Stack>
@@ -885,7 +1101,7 @@ const UserDashboard = () => {
       mb: 1, 
       bgcolor: '#1e293b',
       border: '1px solid #334155',
-      borderLeft: `4px solid ${order.status === 'delivered' ? '#10B981' : order.status === 'processing' ? '#F59E0B' : '#EF4444'}`,
+      borderLeft: '4px solid ' + (order.status === 'delivered' ? '#10B981' : order.status === 'pre_order' ? '#f59e0b' : order.status === 'processing' ? '#F59E0B' : '#EF4444'),
       borderRadius: 1,
       transition: 'all 0.3s ease',
       '&:hover': {
@@ -899,15 +1115,27 @@ const UserDashboard = () => {
             Order #{order.id || 'N/A'}
           </Typography>
           <Typography variant="body2" sx={{ color: '#94a3b8' }}>
-            {order.items?.length || 0} items • {order.totalAmount ? formatCurrency(order.totalAmount) : 'Amount N/A'}
+            {order.items?.length || 0} items • {order.totalAmount ? formatCurrency(order.totalAmount, order.currency) : 'Amount N/A'}
           </Typography>
+          {order.status === 'pre_order' && (
+            <Typography variant="caption" sx={{ color: '#f59e0b', fontWeight: 600 }}>
+              📦 Pre-Order - Expected delivery in ~7 days
+            </Typography>
+          )}
         </Box>
         <Box textAlign="right">
           <Chip 
-            label={order.status || 'Pending'} 
-            color={order.status === 'delivered' ? 'success' : order.status === 'processing' ? 'warning' : 'error'} 
+            label={order.status === 'pre_order' ? 'PRE-ORDER' : (order.status || 'Pending')} 
+            color={order.status === 'delivered' ? 'success' : order.status === 'pre_order' ? 'warning' : order.status === 'processing' ? 'warning' : 'error'} 
             size="small" 
-            sx={{ mb: 1 }}
+            sx={{ 
+              mb: 1,
+              ...(order.status === 'pre_order' && {
+                bgcolor: '#f59e0b',
+                color: 'white',
+                fontWeight: 700
+              })
+            }}
           />
           <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block' }}>
             {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'Date N/A'}
@@ -980,8 +1208,8 @@ const UserDashboard = () => {
         countryCode: locationCurrency === 'MWK' ? 'MW' : 'GB',
         customerEmail: profileData.email || user?.email,
         installmentPlan: activeLease,
-        successUrl: `${window.location.origin}/dashboard?installment=success&order=${activeLease.orderId || activeLease.id}`,
-        cancelUrl: `${window.location.origin}/dashboard?installment=cancel&order=${activeLease.orderId || activeLease.id}`
+        successUrl: window.location.origin + '/dashboard?installment=success&order=' + (activeLease.orderId || activeLease.id),
+        cancelUrl: window.location.origin + '/dashboard?installment=cancel&order=' + (activeLease.orderId || activeLease.id)
       });
 
       if (session?.url) {
@@ -1113,7 +1341,7 @@ const UserDashboard = () => {
             </Button>
             {/* Header Actions moved to EnhancedAppBar - Search, Date, Notifications now in top AppBar */}
               <Menu anchorEl={notifAnchorEl} open={openNotifMenu} onClose={handleNotifClose} 
-                PaperProps={{ sx: { bgcolor: 'rgba(5, 19, 35, 0.95)', border: '1px solid rgba(72, 206, 219, 0.3)' } }}>
+                PaperProps={{ sx: { bgcolor: 'rgba(5, 19, 35, 0.95)', border: '1px solid rgba(72, 206, 219, 0.3)', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none', msOverflowStyle: 'none', overflowY: 'auto', overflowX: 'hidden' } }}>
                 {dashboardData.notifications.length === 0 ? (
                   <MenuItem sx={{ color: 'rgba(255,255,255,0.8)' }}>No notifications</MenuItem>
                 ) : (
@@ -1153,17 +1381,16 @@ const UserDashboard = () => {
           <Grid container spacing={2} sx={{ mt: 2 }}>
             {isAdmin() ? (
               <>
-                <Grid item xs={12} sm={6} md={3}><StatCard title="Total Revenue" value={dashboardData.adminAnalytics?.revenue_stats?.total_revenue_gbp ? `£${Number(dashboardData.adminAnalytics.revenue_stats.total_revenue_gbp).toLocaleString()}` : formatCurrency(dashboardData.stats.totalSpent)} subtitle={dashboardData.adminAnalytics?.revenue_stats?.revenue_today_gbp ? `£${dashboardData.adminAnalytics.revenue_stats.revenue_today_gbp} today` : 'All time'} icon={<MonetizationOnIcon />} color="#10B981" /></Grid>
-                <Grid item xs={12} sm={6} md={3}><StatCard title="Orders" value={dashboardData.adminAnalytics?.order_stats?.total_orders || dashboardData.stats.totalOrders} subtitle={`${dashboardData.adminAnalytics?.order_stats?.pending_orders || dashboardData.stats.pendingOrders} pending`} icon={<AssignmentIcon />} color="#F59E0B" /></Grid>
-                <Grid item xs={12} sm={6} md={3}><StatCard title="Subscriptions" value={dashboardData.adminAnalytics?.subscription_stats?.active_subscriptions || 0} subtitle={`${dashboardData.adminAnalytics?.subscription_stats?.plus_subscribers || 0} Plus / ${dashboardData.adminAnalytics?.subscription_stats?.premium_subscribers || 0} Premium`} icon={<VerifiedIcon />} color="#7c3aed" /></Grid>
-                <Grid item xs={12} sm={6} md={3}><StatCard title="Inventory" value={dashboardData.adminAnalytics?.gadget_stats?.total_gadgets || dashboardData.allGadgets.length} subtitle={dashboardData.variantsSummary.lowStock > 0 ? `${dashboardData.variantsSummary.lowStock} low stock` : 'All stocked'} icon={<DevicesIcon />} color={dashboardData.variantsSummary.lowStock > 0 ? '#EF4444' : '#48cedb'} /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Total Revenue" value={userCurrency === "MWK" ? formatAdminCurrency(dashboardData.adminAnalytics?.revenue_stats?.total_revenue_mwk || 0, "mwk") : formatAdminCurrency(dashboardData.adminAnalytics?.revenue_stats?.total_revenue_gbp || 0, "gbp")} subtitle={userCurrency === "MWK" ? formatAdminCurrency(dashboardData.adminAnalytics?.revenue_stats?.revenue_today_mwk || 0, "mwk") + " today" : formatAdminCurrency(dashboardData.adminAnalytics?.revenue_stats?.revenue_today_gbp || 0, "gbp") + " today"} icon={<MonetizationOnIcon />} color="#10B981" /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Orders" value={dashboardData.adminAnalytics?.order_stats?.total_orders || dashboardData.stats.totalOrders} subtitle={(dashboardData.adminAnalytics?.order_stats?.pending_orders || dashboardData.stats.pendingOrders) + ' pending'} icon={<AssignmentIcon />} color="#F59E0B" /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Subscriptions" value={dashboardData.adminAnalytics?.subscription_stats?.active_subscriptions || 0} subtitle={(dashboardData.adminAnalytics?.subscription_stats?.plus_subscribers || 0) + ' Plus / ' + (dashboardData.adminAnalytics?.subscription_stats?.premium_subscribers || 0) + ' Premium'} icon={<VerifiedIcon />} color="#7c3aed" /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Inventory" value={dashboardData.adminAnalytics?.gadget_stats?.total_gadgets || dashboardData.allGadgets.length} subtitle={dashboardData.variantsSummary.lowStock > 0 ? dashboardData.variantsSummary.lowStock + ' low stock' : 'All stocked'} icon={<DevicesIcon />} color={dashboardData.variantsSummary.lowStock > 0 ? '#EF4444' : '#48cedb'} /></Grid>
               </>
             ) : (
               <>
-                <Grid item xs={12} sm={6} md={3}><StatCard title="My Orders" value={dashboardData.stats.totalOrders} subtitle={dashboardData.stats.pendingOrders > 0 ? `${dashboardData.stats.pendingOrders} pending` : 'All delivered'} icon={<AssignmentIcon />} color="#F59E0B" /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="My Orders" value={dashboardData.stats.totalOrders} subtitle={dashboardData.stats.pendingOrders > 0 ? dashboardData.stats.pendingOrders + ' pending' : 'All delivered'} icon={<AssignmentIcon />} color="#F59E0B" /></Grid>
                 <Grid item xs={12} sm={6} md={3}><StatCard title="Active Installments" value={dashboardData.installments.filter(i=>i.remaining>0).length} subtitle={dashboardData.installments.filter(i=>i.remaining>0).length > 0 ? 'Payments due' : 'No payments due'} icon={<WalletIcon />} color="#48cedb" /></Grid>
-                <Grid item xs={12} sm={6} md={3}><StatCard title="My Devices" value={dashboardData.orders.reduce((sum,o)=>sum+(o.items?.length||0),0)} subtitle={dashboardData.subscription?.status === 'ACTIVE' ? `${dashboardData.subscription?.tier || 'Plus'} member` : 'Not subscribed'} icon={<DevicesIcon />} color="#10B981" /></Grid>
-                <Grid item xs={12} sm={6} md={3}><StatCard title="Trade-Ins" value={dashboardData.tradeIns.length} subtitle={dashboardData.tradeIns.filter(t=>t.status==='pending').length > 0 ? `${dashboardData.tradeIns.filter(t=>t.status==='pending').length} pending review` : 'No active trade-ins'} icon={<SwapHorizIcon />} color="#F59E0B" /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Trade-Ins" value={dashboardData.tradeIns.length} subtitle={dashboardData.tradeIns.filter(t=>t.status==='pending').length > 0 ? dashboardData.tradeIns.filter(t=>t.status==='pending').length + ' pending review' : 'No active trade-ins'} icon={<SwapHorizIcon />} color="#F59E0B" /></Grid>
               </>
             )}
           </Grid>
@@ -1175,34 +1402,87 @@ const UserDashboard = () => {
             mb: 4, 
             bgcolor: 'rgba(5, 19, 35, 0.6)', 
             border: '1px solid rgba(72, 206, 219, 0.15)',
-            borderRadius: 2
+            borderRadius: 2,
+            overflow: 'hidden'
           }}
         >
           <Tabs 
             value={activeTab} 
             onChange={handleTabChange}
-            variant="standard"
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
               '& .MuiTab-root': { 
                 color: 'rgba(255, 255, 255, 0.7)',
                 fontFamily: 'Poppins, sans-serif',
                 fontWeight: 500,
-                minHeight: 56
+                minHeight: 56,
+                px: { xs: 2, sm: 3 },
+                pr: { xs: 3, sm: 4 },
+                minWidth: { xs: 'auto', sm: 160 },
+                overflow: 'visible'
               },
               '& .Mui-selected': { color: '#48cedb' },
               '& .MuiTabs-indicator': { backgroundColor: '#48cedb', height: 3 },
-              '& .MuiTabs-flexContainer': {
-                overflowX: 'auto',
-                overflowY: 'hidden',
-                '&::-webkit-scrollbar': { display: 'none' },
-                scrollbarWidth: 'none'
+              '& .MuiTabs-scrollButtons': {
+                color: '#48cedb',
+                '&.Mui-disabled': { opacity: 0.3 }
               }
             }}
           >
-            <Tab icon={<SpeedIcon />} iconPosition="start" label="Overview" />
-            <Tab icon={<DevicesIcon />} iconPosition="start" label={<Box sx={{ display:'flex', alignItems:'center', gap:0.75 }}><span>My Devices</span><Badge badgeContent={dashboardData.stats.totalOrders} color="primary" sx={{ ml: 1 }} /></Box>} />
-            <Tab icon={<WalletIcon />} iconPosition="start" label={<Box sx={{ display:'flex', alignItems:'center', gap:0.75 }}><span>Payments</span><Badge badgeContent={dashboardData.installments.length} color="primary" sx={{ ml: 1 }} /></Box>} />
-            <Tab icon={<SwapHorizIcon />} iconPosition="start" label={<Box sx={{ display:'flex', alignItems:'center', gap:0.75 }}><span>Trade-Ins</span><Badge badgeContent={dashboardData.tradeIns.filter(t => t.status === 'pending').length} color="warning" sx={{ ml: 1 }} /></Box>} />
+            <Tab icon={<SpeedIcon />} iconPosition="start" label="OVERVIEW" />
+            <Tab 
+              icon={<StarBorderIcon />} 
+              iconPosition="start" 
+              label="BILLING" 
+            />
+            <Tab 
+              icon={<DevicesIcon />} 
+              iconPosition="start" 
+              label={
+                <Box sx={{ display:'flex', alignItems:'center', gap:1, pr: 2 }}>
+                  <span>GADGETS</span>
+                  <Badge 
+                    badgeContent={dashboardData.orders.length} 
+                    color="primary" 
+                    sx={{ 
+                      '& .MuiBadge-badge': { 
+                        position: 'relative',
+                        transform: 'none',
+                        fontSize: '0.7rem',
+                        minWidth: 20,
+                        height: 20,
+                        borderRadius: '10px'
+                      }
+                    }} 
+                  />
+                </Box>
+              } 
+            />
+            <Tab 
+              icon={<SwapHorizIcon />} 
+              iconPosition="start" 
+              label={
+                <Box sx={{ display:'flex', alignItems:'center', gap:1, pr: 2 }}>
+                  <span>TRADE-INS</span>
+                  <Badge 
+                    badgeContent={dashboardData.tradeIns.filter(t => t.status === 'pending').length} 
+                    color="warning" 
+                    sx={{ 
+                      '& .MuiBadge-badge': { 
+                        position: 'relative',
+                        transform: 'none',
+                        fontSize: '0.7rem',
+                        minWidth: 20,
+                        height: 20,
+                        borderRadius: '10px'
+                      }
+                    }} 
+                  />
+                </Box>
+              } 
+            />
           </Tabs>
         </Paper>
 
@@ -1231,7 +1511,7 @@ const UserDashboard = () => {
                   icon={<AssignmentIcon sx={{ fontSize: 36, color: '#48cedb' }} />}
                   description="View all orders"
                   count={dashboardData.stats.totalOrders}
-                  onClick={() => setActiveTab(1)}
+                  onClick={() => setActiveTab(0)}
                 />
               </Grid>
               <Grid item xs={6} sm={3} md={3}>
@@ -1240,7 +1520,7 @@ const UserDashboard = () => {
                   icon={<WalletIcon sx={{ fontSize: 36, color: '#48cedb' }} />}
                   description="Payment plans"
                   count={dashboardData.installments.length}
-                  onClick={() => setActiveTab(2)}
+                  onClick={() => setActiveTab(1)}
                 />
               </Grid>
               <Grid item xs={6} sm={3} md={3}>
@@ -1250,7 +1530,7 @@ const UserDashboard = () => {
                   description="Trade devices"
                   count={dashboardData.tradeIns.length}
                   badge={dashboardData.tradeIns.filter(t => t.status === 'pending').length}
-                  onClick={() => setActiveTab(3)}
+                  onClick={() => setActiveTab(2)}
                 />
               </Grid>
               <Grid item xs={6} sm={3} md={3}>
@@ -1277,8 +1557,8 @@ const UserDashboard = () => {
                   >
                     <CardHeader
                       title={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><SwapHorizIcon sx={{ color: '#48cedb' }} /><span>My Trade-In Applications</span></Box>}
-                      subheader={dashboardData.tradeIns.length > 0 ? `You have ${dashboardData.tradeIns.length} trade-in application(s)` : "Trade in your old devices for instant credit"}
-                      action={<Button variant="contained" size="small" onClick={() => setActiveTab(3)} sx={{ bgcolor: '#48cedb', color: 'black', fontWeight: 700 }}>New Trade-In</Button>}
+                      subheader={dashboardData.tradeIns.length > 0 ? 'You have ' + dashboardData.tradeIns.length + ' trade-in application(s)' : "Trade in your old devices for instant credit"}
+                      action={<Button variant="contained" size="small" onClick={() => setActiveTab(2)} sx={{ bgcolor: '#48cedb', color: 'black', fontWeight: 700 }}>New Trade-In</Button>}
                       sx={{ '& .MuiCardHeader-title': { color: '#48cedb', fontWeight: 700, fontSize: '1.2rem' } }}
                     />
                     <CardContent>
@@ -1303,7 +1583,7 @@ const UserDashboard = () => {
                                   border: `1px solid ${statusColor}40`,
                                   borderRadius: 2,
                                   transition: 'all 0.3s ease',
-                                  '&:hover': { boxShadow: `0 8px 24px ${statusColor}30`, borderColor: statusColor }
+                                  '&:hover': { boxShadow: '0 8px 24px ' + statusColor + '30', borderColor: statusColor }
                                 }}>
                                   <Stack spacing={1.5}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1372,7 +1652,7 @@ const UserDashboard = () => {
                           <Button 
                             variant="contained" 
                             size="large" 
-                            onClick={() => setActiveTab(3)}
+                            onClick={() => setActiveTab(2)}
                             sx={{ 
                               bgcolor: '#48cedb', 
                               color: 'black', 
@@ -1434,7 +1714,7 @@ const UserDashboard = () => {
                         <Grid item xs={12} sm={6} md={3}><StatCard title="Total Variants" value={dashboardData.variantsSummary.totalVariants} subtitle="Across all gadgets" icon={<DevicesIcon />} color="#48cedb" /></Grid>
                         <Grid item xs={12} sm={6} md={3}><StatCard title="Low Stock" value={dashboardData.variantsSummary.lowStock} subtitle="≤3 units" icon={<SecurityIcon />} color="#EF4444" /></Grid>
                         {Object.entries(dashboardData.variantsSummary.attributes || {}).slice(0, 4).map(([attr, count]) => (
-                          <Grid item xs={12} sm={6} md={3} key={attr}><StatCard title={`${attr.charAt(0).toUpperCase()+attr.slice(1)}`} value={count} subtitle="distinct values" icon={<VerifiedIcon />} color="#10B981" /></Grid>
+                          <Grid item xs={12} sm={6} md={3} key={attr}><StatCard title={attr.charAt(0).toUpperCase() + attr.slice(1)} value={count} subtitle="distinct values" icon={<VerifiedIcon />} color="#10B981" /></Grid>
                         ))}
                       </Grid>
                     </CardContent>
@@ -1620,7 +1900,7 @@ const UserDashboard = () => {
                                 <Button
                                   variant="contained"
                                   size="large"
-                                  onClick={() => window.location.href = `/gadgets/${dashboardData.recommendations[activeSlide]?.id}`}
+                                  onClick={() => window.location.href = '/gadgets/' + (dashboardData.recommendations[activeSlide]?.id || '')}
                                   sx={{
                                     bgcolor: '#48cedb',
                                     color: 'white',
@@ -1671,8 +1951,270 @@ const UserDashboard = () => {
           </>
         )}
 
-        {/* Tab 1: My Devices */}
+        {/* Tab 1: Billing (Subscriptions) */}
         {activeTab === 1 && (
+          <Grid container spacing={3}>
+            {/* Subscription Management */}
+            <Grid item xs={12}>
+              <DashboardCard 
+                gradient
+                sx={{
+                  background: dashboardData.subscription?.isActive
+                    ? 'linear-gradient(135deg, rgba(72, 206, 219, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%)'
+                    : 'linear-gradient(135deg, rgba(5, 19, 35, 0.95), rgba(16, 56, 82, 0.9))',
+                  border: dashboardData.subscription?.isActive
+                    ? '2px solid #10B981'
+                    : '1px solid rgba(72, 206, 219, 0.3)'
+                }}
+              >
+                <CardHeader
+                  title={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <SecurityIcon sx={{ color: '#48cedb' }} />
+                      <span>Subscription Management</span>
+                    </Box>
+                  }
+                  subheader={
+                    dashboardData.subscription?.isActive
+                      ? 'Active ' + (dashboardData.subscription.tier === 'premium' ? 'Premium' : 'Plus') + ' Plan'
+                      : 'Protect your devices with insurance coverage'
+                  }
+                  sx={{
+                    '& .MuiCardHeader-title': { color: '#48cedb', fontWeight: 'bold', fontSize: '1.1rem' },
+                    '& .MuiCardHeader-subheader': { color: 'rgba(255, 255, 255, 0.7)' }
+                  }}
+                />
+                <CardContent>
+                  {dashboardData.subscription?.isActive ? (
+                    <Stack spacing={2.5}>
+                      {/* Device Status and Linking */}
+                      <SubscriptionDeviceStatus
+                        subscription={dashboardData.subscription}
+                        onDeviceChanged={(device) => {
+                          console.log('Device linked:', device);
+                          // Refresh subscription data
+                          window.location.reload();
+                        }}
+                      />
+
+                      {/* Active Subscription Card */}
+                      <Paper
+                        sx={{
+                          p: 2.5,
+                          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(72, 206, 219, 0.1) 100%)',
+                          border: '2px solid #10B981',
+                          borderRadius: 2
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                          <Box>
+                            <Typography variant="h6" sx={{ color: 'white', fontWeight: 700, mb: 0.5 }}>
+                              {dashboardData.subscription.tier === 'premium' ? 'XtraPush Premium' : 'XtraPush Plus'}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: '#10B981', fontWeight: 600 }}>
+                              {dashboardData.subscription.tier === 'premium'
+                                ? (userCurrency === 'GBP' ? '£9.99/mo' : 'MWK 10,000/mo')
+                                : (userCurrency === 'GBP' ? '£6/mo' : 'MWK 6,000/mo')
+                              }
+                            </Typography>
+                          </Box>
+                          <Chip
+                            icon={<CheckCircleIcon />}
+                            label="ACTIVE"
+                            size="small"
+                            sx={{
+                              bgcolor: '#10B981',
+                              color: 'white',
+                              fontWeight: 700
+                            }}
+                          />
+                        </Box>
+
+                        <Divider sx={{ mb: 2, bgcolor: 'rgba(16, 185, 129, 0.3)' }} />
+
+                        {/* Coverage Info */}
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)', fontWeight: 600, mb: 1 }}>
+                            📱 Device Coverage:
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                            {dashboardData.subscription.tier === 'premium'
+                              ? '✅ ALL your devices are covered (laptops, smartphones, tablets)'
+                              : '✅ ONE device covered (laptop, smartphone, or tablet)'
+                            }
+                          </Typography>
+                        </Box>
+
+                        {/* Benefits */}
+                        <Stack spacing={0.75}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <CheckCircleIcon sx={{ fontSize: 16, color: '#10B981' }} />
+                            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+                              Free unlimited delivery
+                            </Typography>
+                          </Stack>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <CheckCircleIcon sx={{ fontSize: 16, color: '#10B981' }} />
+                            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+                              {dashboardData.subscription.tier === 'premium' ? 'Multiple' : 'Single'} gadget insurance (1 year)
+                            </Typography>
+                          </Stack>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <CheckCircleIcon sx={{ fontSize: 16, color: '#10B981' }} />
+                            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+                              Member discounts
+                            </Typography>
+                          </Stack>
+                          {dashboardData.subscription.tier === 'premium' && (
+                            <>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <CheckCircleIcon sx={{ fontSize: 16, color: '#10B981' }} />
+                                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+                                  Priority support
+                                </Typography>
+                              </Stack>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <CheckCircleIcon sx={{ fontSize: 16, color: '#10B981' }} />
+                                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+                                  Early access to new gadgets
+                                </Typography>
+                              </Stack>
+                            </>
+                          )}
+                        </Stack>
+
+                        {/* Manage Button */}
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          size="small"
+                          href="/dashboard/subscription"
+                          sx={{
+                            mt: 2,
+                            color: '#10B981',
+                            borderColor: '#10B981',
+                            borderWidth: 2,
+                            fontWeight: 600,
+                            '&:hover': {
+                              borderColor: '#10B981',
+                              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                              borderWidth: 2
+                            }
+                          }}
+                        >
+                          Manage Subscription
+                        </Button>
+                      </Paper>
+
+                      {/* Upgrade Option for Plus users */}
+                      {dashboardData.subscription.tier === 'plus' && (
+                        <Paper
+                          sx={{
+                            p: 2,
+                            bgcolor: 'rgba(124, 58, 237, 0.1)',
+                            border: '1px solid rgba(124, 58, 237, 0.3)',
+                            borderRadius: 2
+                          }}
+                        >
+                          <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, mb: 1 }}>
+                            🚀 Upgrade to Premium
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', display: 'block', mb: 1.5 }}>
+                            Cover ALL devices + priority support for just {userCurrency === 'GBP' ? '£3.99' : 'MWK 4,000'} more/month
+                          </Typography>
+                          <Button
+                            fullWidth
+                            variant="contained"
+                            size="small"
+                            onClick={() => handleSubscriptionClick('premium')}
+                            sx={{
+                              bgcolor: '#7c3aed',
+                              fontWeight: 600,
+                              '&:hover': { bgcolor: '#6d28d9' }
+                            }}
+                          >
+                            Upgrade Now
+                          </Button>
+                        </Paper>
+                      )}
+                    </Stack>
+                  ) : (
+                    <Stack spacing={2}>
+                      {/* No Subscription - Show Options */}
+                      {coveragePlans.map((plan) => (
+                        <Paper
+                          key={plan.name}
+                          sx={{
+                            p: 2,
+                            bgcolor: 'rgba(5, 19, 35, 0.6)',
+                            border: `2px solid ${plan.color}33`,
+                            borderRadius: 2,
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              transform: 'translateY(-2px)',
+                              boxShadow: `0 8px 24px ${plan.color}44`,
+                              border: `2px solid ${plan.color}`
+                            }
+                          }}
+                        >
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} mb={1.5}>
+                            <Box>
+                              <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 700 }}>
+                                {plan.name}
+                              </Typography>
+                              <Typography variant="h6" sx={{ color: plan.color, fontWeight: 700 }}>
+                                {plan.priceLabel}
+                              </Typography>
+                            </Box>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              onClick={() => handleSubscriptionClick(plan.name === 'XtraPush Plus' ? 'plus' : 'premium')}
+                              sx={{
+                                bgcolor: plan.color,
+                                color: 'white',
+                                fontWeight: 700,
+                                '&:hover': { bgcolor: plan.color, filter: 'brightness(1.15)' }
+                              }}
+                            >
+                              {plan.cta}
+                            </Button>
+                          </Stack>
+                          <Stack spacing={0.5}>
+                            {plan.perks.map((perk) => (
+                              <Stack key={perk} direction="row" spacing={1} alignItems="center">
+                                <CheckCircleIcon sx={{ fontSize: 16, color: plan.color }} />
+                                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+                                  {perk}
+                                </Typography>
+                              </Stack>
+                            ))}
+                          </Stack>
+                        </Paper>
+                      ))}
+                      
+                      <Alert 
+                        severity="info" 
+                        sx={{ 
+                          bgcolor: 'rgba(72, 206, 219, 0.1)',
+                          border: '1px solid rgba(72, 206, 219, 0.3)',
+                          '& .MuiAlert-message': { color: 'rgba(255, 255, 255, 0.9)' }
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                          💳 Payments via {userCurrency === 'GBP' ? 'Square' : 'PayChangu'} • Auto-renewable monthly
+                        </Typography>
+                      </Alert>
+                    </Stack>
+                  )}
+                </CardContent>
+              </DashboardCard>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* Tab 2: Gadgets (My Devices) */}
+        {activeTab === 2 && (
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <DashboardCard gradient>
@@ -2045,12 +2587,7 @@ const UserDashboard = () => {
                 </CardContent>
               </DashboardCard>
             </Grid>
-          </Grid>
-        )}
 
-        {/* Tab 2: Payments & Installments */}
-        {activeTab === 2 && (
-          <Grid container spacing={3}>
             {/* Admin: All Users Installments Summary */}
             {isAdmin() && (
               <Grid item xs={12}>
@@ -2518,263 +3055,6 @@ const UserDashboard = () => {
                       </Grid>
                     ))}
                   </Grid>
-                </CardContent>
-              </DashboardCard>
-            </Grid>
-
-            {/* Subscription Management */}
-            <Grid item xs={12} md={5}>
-              <DashboardCard 
-                gradient
-                sx={{
-                  background: dashboardData.subscription?.isActive
-                    ? 'linear-gradient(135deg, rgba(72, 206, 219, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%)'
-                    : 'linear-gradient(135deg, rgba(5, 19, 35, 0.95), rgba(16, 56, 82, 0.9))',
-                  border: dashboardData.subscription?.isActive
-                    ? '2px solid #10B981'
-                    : '1px solid rgba(72, 206, 219, 0.3)'
-                }}
-              >
-                <CardHeader
-                  title={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <SecurityIcon sx={{ color: '#48cedb' }} />
-                      <span>Subscription Management</span>
-                    </Box>
-                  }
-                  subheader={
-                    dashboardData.subscription?.isActive
-                      ? `Active ${dashboardData.subscription.tier === 'premium' ? 'Premium' : 'Plus'} Plan`
-                      : 'Protect your devices with insurance coverage'
-                  }
-                  sx={{
-                    '& .MuiCardHeader-title': { color: '#48cedb', fontWeight: 'bold', fontSize: '1.1rem' },
-                    '& .MuiCardHeader-subheader': { color: 'rgba(255, 255, 255, 0.7)' }
-                  }}
-                />
-                <CardContent>
-                  {dashboardData.subscription?.isActive ? (
-                    <Stack spacing={2.5}>
-                      {/* Device Status and Linking */}
-                      <SubscriptionDeviceStatus
-                        subscription={dashboardData.subscription}
-                        onDeviceChanged={(device) => {
-                          console.log('Device linked:', device);
-                          // Refresh subscription data
-                          window.location.reload();
-                        }}
-                      />
-
-                      {/* Active Subscription Card */}
-                      <Paper
-                        sx={{
-                          p: 2.5,
-                          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(72, 206, 219, 0.1) 100%)',
-                          border: '2px solid #10B981',
-                          borderRadius: 2
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                          <Box>
-                            <Typography variant="h6" sx={{ color: 'white', fontWeight: 700, mb: 0.5 }}>
-                              {dashboardData.subscription.tier === 'premium' ? 'XtraPush Premium' : 'XtraPush Plus'}
-                            </Typography>
-                            <Typography variant="body2" sx={{ color: '#10B981', fontWeight: 600 }}>
-                              {dashboardData.subscription.tier === 'premium'
-                                ? (userCurrency === 'GBP' ? '£9.99/mo' : 'MWK 10,000/mo')
-                                : (userCurrency === 'GBP' ? '£6/mo' : 'MWK 6,000/mo')
-                              }
-                            </Typography>
-                          </Box>
-                          <Chip
-                            icon={<CheckCircleIcon />}
-                            label="ACTIVE"
-                            size="small"
-                            sx={{
-                              bgcolor: '#10B981',
-                              color: 'white',
-                              fontWeight: 700
-                            }}
-                          />
-                        </Box>
-
-                        <Divider sx={{ mb: 2, bgcolor: 'rgba(16, 185, 129, 0.3)' }} />
-
-                        {/* Coverage Info */}
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)', fontWeight: 600, mb: 1 }}>
-                            📱 Device Coverage:
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                            {dashboardData.subscription.tier === 'premium'
-                              ? '✅ ALL your devices are covered (laptops, smartphones, tablets)'
-                              : '✅ ONE device covered (laptop, smartphone, or tablet)'
-                            }
-                          </Typography>
-                        </Box>
-
-                        {/* Benefits */}
-                        <Stack spacing={0.75}>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <CheckCircleIcon sx={{ fontSize: 16, color: '#10B981' }} />
-                            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-                              Free unlimited delivery
-                            </Typography>
-                          </Stack>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <CheckCircleIcon sx={{ fontSize: 16, color: '#10B981' }} />
-                            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-                              {dashboardData.subscription.tier === 'premium' ? 'Multiple' : 'Single'} gadget insurance (1 year)
-                            </Typography>
-                          </Stack>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <CheckCircleIcon sx={{ fontSize: 16, color: '#10B981' }} />
-                            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-                              Member discounts
-                            </Typography>
-                          </Stack>
-                          {dashboardData.subscription.tier === 'premium' && (
-                            <>
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                <CheckCircleIcon sx={{ fontSize: 16, color: '#10B981' }} />
-                                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-                                  Priority support
-                                </Typography>
-                              </Stack>
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                <CheckCircleIcon sx={{ fontSize: 16, color: '#10B981' }} />
-                                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-                                  Early access to new gadgets
-                                </Typography>
-                              </Stack>
-                            </>
-                          )}
-                        </Stack>
-
-                        {/* Manage Button */}
-                        <Button
-                          fullWidth
-                          variant="outlined"
-                          size="small"
-                          href="/dashboard/subscription"
-                          sx={{
-                            mt: 2,
-                            color: '#10B981',
-                            borderColor: '#10B981',
-                            borderWidth: 2,
-                            fontWeight: 600,
-                            '&:hover': {
-                              borderColor: '#10B981',
-                              backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                              borderWidth: 2
-                            }
-                          }}
-                        >
-                          Manage Subscription
-                        </Button>
-                      </Paper>
-
-                      {/* Upgrade Option for Plus users */}
-                      {dashboardData.subscription.tier === 'plus' && (
-                        <Paper
-                          sx={{
-                            p: 2,
-                            bgcolor: 'rgba(124, 58, 237, 0.1)',
-                            border: '1px solid rgba(124, 58, 237, 0.3)',
-                            borderRadius: 2
-                          }}
-                        >
-                          <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, mb: 1 }}>
-                            🚀 Upgrade to Premium
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', display: 'block', mb: 1.5 }}>
-                            Cover ALL devices + priority support for just {userCurrency === 'GBP' ? '£3.99' : 'MWK 4,000'} more/month
-                          </Typography>
-                          <Button
-                            fullWidth
-                            variant="contained"
-                            size="small"
-                            onClick={() => handleSubscriptionClick('premium')}
-                            sx={{
-                              bgcolor: '#7c3aed',
-                              fontWeight: 600,
-                              '&:hover': { bgcolor: '#6d28d9' }
-                            }}
-                          >
-                            Upgrade Now
-                          </Button>
-                        </Paper>
-                      )}
-                    </Stack>
-                  ) : (
-                    <Stack spacing={2}>
-                      {/* No Subscription - Show Options */}
-                      {coveragePlans.map((plan) => (
-                        <Paper
-                          key={plan.name}
-                          sx={{
-                            p: 2,
-                            bgcolor: 'rgba(5, 19, 35, 0.6)',
-                            border: `2px solid ${plan.color}33`,
-                            borderRadius: 2,
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                              transform: 'translateY(-2px)',
-                              boxShadow: `0 8px 24px ${plan.color}44`,
-                              border: `2px solid ${plan.color}`
-                            }
-                          }}
-                        >
-                          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} mb={1.5}>
-                            <Box>
-                              <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 700 }}>
-                                {plan.name}
-                              </Typography>
-                              <Typography variant="h6" sx={{ color: plan.color, fontWeight: 700 }}>
-                                {plan.priceLabel}
-                              </Typography>
-                            </Box>
-                            <Button
-                              variant="contained"
-                              size="small"
-                              onClick={() => handleSubscriptionClick(plan.name === 'XtraPush Plus' ? 'plus' : 'premium')}
-                              sx={{
-                                bgcolor: plan.color,
-                                color: 'white',
-                                fontWeight: 700,
-                                '&:hover': { bgcolor: plan.color, filter: 'brightness(1.15)' }
-                              }}
-                            >
-                              {plan.cta}
-                            </Button>
-                          </Stack>
-                          <Stack spacing={0.5}>
-                            {plan.perks.map((perk) => (
-                              <Stack key={perk} direction="row" spacing={1} alignItems="center">
-                                <CheckCircleIcon sx={{ fontSize: 16, color: plan.color }} />
-                                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-                                  {perk}
-                                </Typography>
-                              </Stack>
-                            ))}
-                          </Stack>
-                        </Paper>
-                      ))}
-                      
-                      <Alert 
-                        severity="info" 
-                        sx={{ 
-                          bgcolor: 'rgba(72, 206, 219, 0.1)',
-                          border: '1px solid rgba(72, 206, 219, 0.3)',
-                          '& .MuiAlert-message': { color: 'rgba(255, 255, 255, 0.9)' }
-                        }}
-                      >
-                        <Typography variant="caption" sx={{ fontWeight: 500 }}>
-                          💳 Payments via {userCurrency === 'GBP' ? 'Square' : 'PayChangu'} • Auto-renewable monthly
-                        </Typography>
-                      </Alert>
-                    </Stack>
-                  )}
                 </CardContent>
               </DashboardCard>
             </Grid>

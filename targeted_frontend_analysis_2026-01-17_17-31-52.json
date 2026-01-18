@@ -1,0 +1,18 @@
+{
+    "timestamp": "2026-01-17 17:31:52",
+    "summary": {
+        "critical_errors": 0,
+        "warnings": 1,
+        "recommendations": 0
+    },
+    "critical_errors": [],
+    "warnings": [
+        {
+            "file": "GadgetDetail.jsx",
+            "type": "Undefined state initialization",
+            "line": 67,
+            "description": "State initialized with undefined - may cause unexpected behavior"
+        }
+    ],
+    "recommendations": []
+}

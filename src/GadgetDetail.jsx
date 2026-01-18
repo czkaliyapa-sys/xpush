@@ -12,15 +12,17 @@ import {
   parseGadgetUrl,
   getCanonicalUrl
 } from './utils/seoUtils.js';
-import { CircularProgress, Alert, Tabs, Tab, Box, Snackbar, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { CircularProgress, Alert, Tabs, Tab, Box, Snackbar, FormControl, InputLabel, Select, MenuItem, Typography, Chip } from '@mui/material';
 import BookingCalendar from './components/BookingCalendar.jsx';
 
 import { formatMWK } from './utils/formatters';
 import { usePricing } from './hooks/usePricing';
 import { useAuth } from './contexts/AuthContext.jsx';
 import { useCart } from './contexts/CartContext.jsx';
+import { useLocation } from './contexts/LocationContext.jsx';
 import model3DService from './services/model3DService.js';
 import InstallmentModal from './components/InstallmentModal.jsx';
+import CartModal from './components/CartModal.jsx';
 import ReviewsSection from './components/ReviewsSection.jsx';
 import { recordEvent } from './services/analyticsApi.js';
 const Model3DViewer = React.lazy(() => import('./components/Model3DViewer.jsx'));
@@ -30,6 +32,7 @@ const GadgetDetail = () => {
   const [activeTitle] = useState('Gadgets');
   const [toggle, setToggle] = useState(false);
   const { id, category, slug } = useParams();
+  const { isMalawi } = useLocation();
   
   // Extract ID from SEO-friendly URL or use direct id param
   const gadgetId = slug ? parseGadgetUrl(`/gadgets/${category}/${slug}`) : id;
@@ -47,6 +50,7 @@ const GadgetDetail = () => {
   const { formatLocalPrice, currency, isInMalawi, loading: pricingLoading } = usePricing();
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [preOrderCartOpen, setPreOrderCartOpen] = useState(false);
   const [checking3D, setChecking3D] = useState(false);
   const [modelUnavailable, setModelUnavailable] = useState(false);
   const [installmentOpen, setInstallmentOpen] = useState(false);
@@ -60,7 +64,7 @@ const GadgetDetail = () => {
   const [selectedColor, setSelectedColor] = useState(''); // color name
   const [selectedStorage, setSelectedStorage] = useState('');
   const [selectedCondition, setSelectedCondition] = useState('new'); // token
-  const [variantId, setVariantId] = useState(undefined);
+  const [variantId, setVariantId] = useState(null);
   const [displayPrice, setDisplayPrice] = useState(0);
   const [selectedVariantStock, setSelectedVariantStock] = useState(null);
 
@@ -729,161 +733,210 @@ const GadgetDetail = () => {
           <motion.p className="text-gray-400" variants={summaryItem}>Model: <span className="text-white">{gadget.model}</span></motion.p>
           <motion.p className="text-gray-400" variants={summaryItem}>Category: <span className="text-white">{gadget.category}</span></motion.p>
           
-          {/* Color selector - shows when admin-defined colors exist, or shows disabled default for eligible categories */}
+          {/* Color selector - button style options */}
           {(colorOptions.length > 0 || (isVariantEligibleCategory && variants.length === 0)) && (
-            <Box sx={{ mt: 1 }}>
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel sx={{ color: colorOptions.length === 0 ? 'rgba(255,255,255,0.5)' : 'white' }}>Color</InputLabel>
-                <Select
-                  value={colorOptions.length > 0 ? (selectedColor || colorOptions[0]?.color || '') : ''}
-                  label="Color"
-                  onChange={(e) => handleColorSelect(e.target.value)}
-                  disabled={colorOptions.length <= 1}
-                  displayEmpty
-                  sx={{
-                    color: colorOptions.length === 0 ? 'rgba(255,255,255,0.5)' : 'white',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.2)' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.3)' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'white' },
-                    '&.Mui-disabled': { 
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 600, mb: 1, display: 'block' }}>
+                Colour: <span style={{ color: 'white' }}>{selectedColor || colorOptions[0]?.color || 'Not specified'}</span>
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'flex-start' }}>
+                {colorOptions.length === 0 ? (
+                  <Box
+                    sx={{
+                      px: 2,
+                      py: 1,
+                      borderRadius: 1,
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      bgcolor: 'transparent',
                       color: 'rgba(255,255,255,0.5)',
-                      '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' }
-                    }
-                  }}
-                  MenuProps={{
-                    PaperProps: { sx: { bgcolor: '#1565c0', color: 'white' } }
-                  }}
-                >
-                  {colorOptions.length === 0 ? (
-                    <MenuItem value="" disabled>Not specified</MenuItem>
-                  ) : (
-                    colorOptions.map((opt) => (
-                      <MenuItem key={opt.color} value={opt.color}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {opt.colorHex && (
-                            <Box 
-                              sx={{ 
-                                width: 16, 
-                                height: 16, 
-                                borderRadius: '50%', 
-                                backgroundColor: opt.colorHex,
-                                border: '1px solid rgba(255,255,255,0.3)'
-                              }} 
-                            />
-                          )}
-                          {opt.color}
-                        </Box>
-                      </MenuItem>
-                    ))
-                  )}
-                </Select>
-              </FormControl>
+                      fontSize: '0.85rem',
+                      cursor: 'not-allowed'
+                    }}
+                  >
+                    Not specified
+                  </Box>
+                ) : (
+                  colorOptions.map((opt) => {
+                    const isSelected = (selectedColor || colorOptions[0]?.color) === opt.color;
+                    return (
+                      <Box
+                        key={opt.color}
+                        onClick={() => colorOptions.length > 1 && handleColorSelect(opt.color)}
+                        sx={{
+                          px: 2,
+                          py: 1,
+                          borderRadius: 1,
+                          border: isSelected ? '2px solid #48CEDB' : '1px solid rgba(255,255,255,0.3)',
+                          bgcolor: isSelected ? 'rgba(72, 206, 219, 0.15)' : 'transparent',
+                          color: 'white',
+                          cursor: colorOptions.length > 1 ? 'pointer' : 'not-allowed',
+                          fontSize: '0.85rem',
+                          fontWeight: isSelected ? 600 : 400,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          transition: 'all 0.2s ease',
+                          '&:hover': colorOptions.length > 1 ? {
+                            borderColor: '#48CEDB',
+                            bgcolor: 'rgba(72, 206, 219, 0.1)'
+                          } : {}
+                        }}
+                      >
+                        {opt.colorHex && (
+                          <Box sx={{ 
+                            width: 14, 
+                            height: 14, 
+                            borderRadius: '50%', 
+                            bgcolor: opt.colorHex || '#ffffff',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            flexShrink: 0
+                          }} />
+                        )}
+                        <span>{opt.color}</span>
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
             </Box>
           )}
 
-          {/* Condition selector shows when admin-defined conditions exist, or shows disabled default for eligible categories */}
+          {/* Condition selector - button style options */}
           {(conditionOptions.length > 0 || (isVariantEligibleCategory && variants.length === 0)) && (
-            <Box sx={{ mt: 1 }}>
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel sx={{ color: conditionOptions.length === 0 ? 'rgba(255,255,255,0.5)' : 'white' }}>Condition</InputLabel>
-                <Select
-                  value={conditionOptions.length > 0 ? (CONDITION_TOKEN_TO_LABEL[selectedCondition] || 'New') : 'New'}
-                  label="Condition"
-                  onChange={(e) => handleConditionSelect(e.target.value)}
-                  disabled={conditionOptions.length <= 1}
-                  sx={{
-                    color: conditionOptions.length === 0 ? 'rgba(255,255,255,0.5)' : 'white',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.2)' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.3)' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'white' },
-                    '&.Mui-disabled': { 
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 600, mb: 1, display: 'block' }}>
+                Condition: <span style={{ color: 'white' }}>{CONDITION_TOKEN_TO_LABEL[selectedCondition] || 'New'}</span>
+                {variants.length === 0 && (
+                  <Chip label="Default: New" size="small" sx={{ ml: 1, bgcolor: 'rgba(72, 206, 219, 0.2)', color: '#48CEDB', height: 18, fontSize: '0.7rem' }} />
+                )}
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'flex-start' }}>
+                {availableConditions.length === 0 ? (
+                  <Box
+                    sx={{
+                      px: 2,
+                      py: 1,
+                      borderRadius: 1,
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      bgcolor: 'transparent',
                       color: 'rgba(255,255,255,0.5)',
-                      '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' }
-                    }
-                  }}
-                  MenuProps={{
-                    PaperProps: { sx: { bgcolor: '#1565c0', color: 'white' } }
-                  }}
-                >
-                  {availableConditions.length === 0 ? (
-                    <MenuItem value="New" disabled>New</MenuItem>
-                  ) : (
-                    availableConditions.map((label) => {
-                      const token = CONDITION_LABEL_TO_TOKEN[label];
-                      // Check if this condition has stock for selected storage
-                      const hasStock = variants.some(v => 
-                        v.condition_status === token && 
-                        (!selectedStorage || v.storage === selectedStorage) &&
-                        parseInt(v.stock_quantity ?? 0, 10) > 0
-                      );
-                      return (
-                        <MenuItem 
-                          key={label} 
-                          value={label}
-                          sx={{ 
-                            opacity: hasStock ? 1 : 0.5,
-                            '&::after': !hasStock ? { content: '" (Out of stock)"', fontSize: '0.75rem', ml: 1, color: 'rgba(255,255,255,0.5)' } : {}
-                          }}
-                        >
-                          {label}
-                        </MenuItem>
-                      );
-                    })
-                  )}
-                </Select>
-              </FormControl>
+                      fontSize: '0.85rem',
+                      cursor: 'not-allowed'
+                    }}
+                  >
+                    New
+                  </Box>
+                ) : (
+                  availableConditions.map((label) => {
+                    const token = CONDITION_LABEL_TO_TOKEN[label];
+                    const currentCondition = CONDITION_TOKEN_TO_LABEL[selectedCondition] || 'New';
+                    const isSelected = currentCondition === label;
+                    const isDefault = label === 'New' && variants.length === 0;
+                    
+                    // Check if this condition has stock for selected storage
+                    const hasStock = variants.some(v => 
+                      v.condition_status === token && 
+                      (!selectedStorage || v.storage === selectedStorage) &&
+                      parseInt(v.stock_quantity ?? 0, 10) > 0
+                    );
+                    
+                    return (
+                      <Box
+                        key={label}
+                        onClick={() => hasStock && handleConditionSelect(label)}
+                        sx={{
+                          px: 2,
+                          py: 1,
+                          borderRadius: 1,
+                          border: isSelected ? '2px solid #48CEDB' : (isDefault ? '2px solid rgba(72, 206, 219, 0.5)' : '1px solid rgba(255,255,255,0.3)'),
+                          bgcolor: isSelected ? 'rgba(72, 206, 219, 0.15)' : (isDefault ? 'rgba(72, 206, 219, 0.08)' : 'transparent'),
+                          color: hasStock ? 'white' : 'rgba(255,255,255,0.3)',
+                          cursor: hasStock ? 'pointer' : 'not-allowed',
+                          opacity: hasStock ? 1 : 0.5,
+                          fontSize: '0.85rem',
+                          fontWeight: isSelected ? 600 : (isDefault ? 500 : 400),
+                          transition: 'all 0.2s ease',
+                          '&:hover': hasStock ? {
+                            borderColor: '#48CEDB',
+                            bgcolor: 'rgba(72, 206, 219, 0.1)'
+                          } : {}
+                        }}
+                      >
+                        {label}
+                        {!hasStock && <span style={{ color: 'rgba(72, 206, 219, 0.5)', fontSize: '0.75rem', marginLeft: '0.25rem' }}>(Out of stock)</span>}
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
             </Box>
           )}
 
-          {/* Storage selector shows when admin-defined storages exist, or shows disabled default for eligible categories */}
+          {/* Storage selector - button style options */}
           {(availableStorages.length > 0 || storageOptions.length > 0 || (isVariantEligibleCategory && variants.length === 0)) && (
-            <Box sx={{ mt: 1 }}>
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel sx={{ color: availableStorages.length === 0 ? 'rgba(255,255,255,0.5)' : 'white' }}>Storage</InputLabel>
-                <Select
-                  value={availableStorages.length > 0 ? (selectedStorage || availableStorages[0]) : (storageOptions.length > 0 ? storageOptions[0] : '')}
-                  label="Storage"
-                  onChange={(e) => handleStorageSelect(e.target.value)}
-                  disabled={availableStorages.length <= 1 && storageOptions.length <= 1}
-                  displayEmpty
-                  sx={{
-                    color: availableStorages.length === 0 ? 'rgba(255,255,255,0.5)' : 'white',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.2)' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.3)' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'white' },
-                    '&.Mui-disabled': { 
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 600, mb: 1, display: 'block' }}>
+                Storage: <span style={{ color: 'white' }}>{selectedStorage || availableStorages[0] || storageOptions[0] || 'Not specified'}</span>
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'flex-start' }}>
+                {storageOptions.length === 0 ? (
+                  <Box
+                    sx={{
+                      px: 2,
+                      py: 1,
+                      borderRadius: 1,
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      bgcolor: 'transparent',
                       color: 'rgba(255,255,255,0.5)',
-                      '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.15)' }
-                    }
-                  }}
-                  MenuProps={{
-                    PaperProps: { sx: { bgcolor: '#1565c0', color: 'white' } }
-                  }}
-                >
-                  {storageOptions.length === 0 ? (
-                    <MenuItem value="" disabled>Not specified</MenuItem>
-                  ) : (
-                    storageOptions.map((opt) => {
-                      // Check if this storage has stock
-                      const hasStock = variants.some(v => 
-                        v.storage === opt && parseInt(v.stock_quantity ?? 0, 10) > 0
-                      );
-                      return (
-                        <MenuItem 
-                          key={opt} 
-                          value={opt}
-                          disabled={!hasStock}
-                          sx={{ 
-                            opacity: hasStock ? 1 : 0.5,
-                          }}
-                        >
-                          {opt}{!hasStock ? ' (Out of stock)' : ''}
-                        </MenuItem>
-                      );
-                    })
-                  )}
-                </Select>
-              </FormControl>
+                      fontSize: '0.85rem',
+                      cursor: 'not-allowed'
+                    }}
+                  >
+                    Not specified
+                  </Box>
+                ) : (
+                  storageOptions.map((opt) => {
+                    const isSelected = (selectedStorage || availableStorages[0] || storageOptions[0]) === opt;
+                    const categoryLower = (gadget?.category || '').toLowerCase();
+                    const isDefaultStorage = variants.length === 0 && (
+                      (opt === '256GB' && (categoryLower.includes('smartphone') || categoryLower.includes('phone'))) ||
+                      (opt === '512GB' && categoryLower.includes('laptop'))
+                    );
+                    
+                    // Check if this storage has stock
+                    const hasStock = variants.some(v => 
+                      v.storage === opt && parseInt(v.stock_quantity ?? 0, 10) > 0
+                    );
+                    
+                    return (
+                      <Box
+                        key={opt}
+                        onClick={() => hasStock && handleStorageSelect(opt)}
+                        sx={{
+                          px: 2,
+                          py: 1,
+                          borderRadius: 1,
+                          border: isSelected ? '2px solid #48CEDB' : (isDefaultStorage ? '2px solid rgba(72, 206, 219, 0.5)' : '1px solid rgba(255,255,255,0.3)'),
+                          bgcolor: isSelected ? 'rgba(72, 206, 219, 0.15)' : (isDefaultStorage ? 'rgba(72, 206, 219, 0.08)' : 'transparent'),
+                          color: hasStock ? 'white' : 'rgba(255,255,255,0.3)',
+                          cursor: hasStock ? 'pointer' : 'not-allowed',
+                          opacity: hasStock ? 1 : 0.5,
+                          fontSize: '0.85rem',
+                          fontWeight: isSelected ? 600 : (isDefaultStorage ? 500 : 400),
+                          transition: 'all 0.2s ease',
+                          '&:hover': hasStock ? {
+                            borderColor: '#48CEDB',
+                            bgcolor: 'rgba(72, 206, 219, 0.1)'
+                          } : {}
+                        }}
+                      >
+                        {opt}
+                        {!hasStock && <span style={{ color: 'rgba(72, 206, 219, 0.5)', fontSize: '0.75rem', marginLeft: '0.25rem' }}>(Out of stock)</span>}
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
             </Box>
           )}
         </motion.div>
@@ -915,7 +968,7 @@ const GadgetDetail = () => {
           }
           const isAvailable = stockCount > 0;
           const hidePrice = stockCount < 0;
-          const showActions = stockCount > 0;
+          const showActions = true;
           
           // Get the correct price for display based on user location
           const getPriceDisplay = () => {
@@ -946,7 +999,7 @@ const GadgetDetail = () => {
               {!hidePrice && (
                 <motion.p className="text-gray-400" variants={summaryItem}>Price:
                   <span className="text-white text-2xl font-bold ml-2">
-                    From {getPriceDisplay()}
+                    {getPriceDisplay()}
                   </span>
                 </motion.p>
               )}
@@ -959,26 +1012,62 @@ const GadgetDetail = () => {
                 </span>
               </motion.p>
               {showActions && (
-                <motion.button
-                  variants={ctaItem}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleAddToCart}
-                  className={`px-6 py-3 rounded-lg text-white font-bold shadow-lg transition bg-blue-700 hover:bg-blue-800`}
-                >
-                  Add to Cart
-                </motion.button>
-              )}
-              {showActions && (
-                <motion.button
-                  variants={ctaItem}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setInstallmentOpen(true)}
-                  className="px-6 py-3 rounded-lg text-white font-bold shadow-lg transition bg-blue-700 hover:bg-blue-800"
-                >
-                  Pay in installments
-                </motion.button>
+                <>
+                  {isAvailable ? (
+                    <>
+                      <motion.button
+                        variants={ctaItem}
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleAddToCart}
+                        className={`px-6 py-3 rounded-lg text-white font-bold shadow-lg transition bg-blue-700 hover:bg-blue-800`}
+                      >
+                        Add to Cart
+                      </motion.button>
+                      <motion.button
+                        variants={ctaItem}
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setInstallmentOpen(true)}
+                        className="px-6 py-3 rounded-lg text-white font-bold shadow-lg transition bg-blue-700 hover:bg-blue-800"
+                      >
+                        Pay in installments
+                      </motion.button>
+                    </>
+                  ) : (
+                    <motion.button
+                      variants={ctaItem}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        const cat = String(gadget.category || '').toLowerCase();
+                        const defaultStorage = ['smartphone','phone','tablet','laptop'].includes(cat) ? '32GB' : undefined;
+                        const cartPrice = isInMalawi 
+                          ? Number(gadget.price_mwk ?? gadget.priceMwk ?? gadget.price) 
+                          : Number(gadget.price_gbp ?? gadget.priceGbp ?? gadget.price);
+                        addToCart({
+                          id: gadget.id,
+                          title: gadget.name || gadget.title,
+                          price: cartPrice,
+                          priceGbp: Number(gadget.price_gbp ?? gadget.priceGbp ?? gadget.price),
+                          priceMwk: Number(gadget.price_mwk ?? gadget.priceMwk ?? gadget.price),
+                          image: gadget.image,
+                          number: 1,
+                          brand: gadget.brand || '',
+                          condition: gadget.condition || 'new',
+                          storage: defaultStorage,
+                          category: gadget.category || '',
+                          description: gadget.description || '',
+                          isPreOrder: true
+                        });
+                        setTimeout(() => setPreOrderCartOpen(true), 100);
+                      }}
+                      className="px-6 py-3 rounded-lg text-white font-bold shadow-lg transition bg-gray-800 hover:bg-gray-900"
+                    >
+                      Pre-Order Now
+                    </motion.button>
+                  )}
+                </>
               )}
             </motion.div>
           );
@@ -1137,6 +1226,12 @@ const GadgetDetail = () => {
             </Alert>
           </Snackbar>
 
+          {/* Pre-Order Cart Modal */}
+          <CartModal 
+            open={preOrderCartOpen} 
+            onClose={() => setPreOrderCartOpen(false)}
+            gadget={null}
+          />
       
         </div>
       </div>

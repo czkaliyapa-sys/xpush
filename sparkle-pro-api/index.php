@@ -113,7 +113,7 @@ if (!defined('SMTP_PASS')) { define('SMTP_PASS', getenv('brickwall2010?') ?: '')
 if (!defined('SMTP_PORT')) { define('SMTP_PORT', intval(getenv('SMTP_PORT') ?: 587)); }
 if (!defined('SMTP_SECURE')) { define('STRIPE_SECURE', getenv('SMTP_SECURE') ?: 'tls'); }
 if (!defined('MAIL_FROM')) { define('MAIL_FROM', getenv('MAIL_FROM') ?: 'no-reply@support.itsxtrapush.com'); }
-if (!defined('MAIL_FROM_NAME')) { define('MAIL_FROM_NAME', getenv('MAIL_FROM_NAME') ?: 'Xtrapush Support'); }
+if (!defined('MAIL_FROM_NAME')) { define('MAIL_FROM_NAME', getenv('MAIL_FROM_NAME') ?: 'Xtrapush Gadgets'); }
 
 // Helper: configured PHPMailer instance
 function getMailer() {
@@ -140,7 +140,7 @@ function getMailer() {
     // Defaults
     $mail->isHTML(true);
     $mail->CharSet = 'UTF-8';
-    $mail->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Support');
+    $mail->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Gadgets');
 
     return $mail;
 }
@@ -283,6 +283,80 @@ function gadgets_list() {
                 ];
             }
             $dstmt->close();
+            
+            // NEW: Add variant data to each gadget in the list
+            $gadgetIds = array_column($list, 'id');
+            if (!empty($gadgetIds)) {
+                $variantsMap = get_variants_for_gadgets($gadgetIds);
+                foreach ($list as &$gadget) {
+                    $gadgetId = $gadget['id'];
+                    $gadgetVariants = $variantsMap[$gadgetId] ?? [];
+                    
+                    // Calculate lowest variant prices
+                    $lowestPrice = null;
+                    $lowestPriceGbp = null;
+                    $totalVariantStock = 0;
+                    
+                    foreach ($gadgetVariants as $variant) {
+                        if ($lowestPrice === null || $variant['price'] < $lowestPrice) {
+                            $lowestPrice = $variant['price'];
+                        }
+                        if ($variant['price_gbp'] !== null && 
+                            ($lowestPriceGbp === null || $variant['price_gbp'] < $lowestPriceGbp)) {
+                            $lowestPriceGbp = $variant['price_gbp'];
+                        }
+                        $totalVariantStock += $variant['stock_quantity'];
+                    }
+                    
+                    // Add variant-aware fields
+                    $gadget['variants'] = $gadgetVariants;
+                    $gadget['has_variants'] = !empty($gadgetVariants);
+                    $gadget['variant_count'] = count($gadgetVariants);
+                    $gadget['total_variant_stock'] = $totalVariantStock;
+                    $gadget['lowest_variant_price'] = $lowestPrice;
+                    $gadget['lowest_variant_price_gbp'] = $lowestPriceGbp;
+                    
+                    // ENFORCE VARIANT-BASED PRICING: Always use variant prices when available
+                    // Even if gadget has zero prices, use variant data
+                    if ($lowestPrice !== null) {
+                        $gadget['effective_price'] = $lowestPrice;
+                        // Override the base price to ensure consistency
+                        $gadget['price'] = $lowestPrice;
+                    } elseif ($gadget['price'] == 0) {
+                        // If no variants and gadget price is zero, mark as unavailable
+                        $gadget['effective_price'] = 0;
+                        $gadget['in_stock'] = 0;
+                        $gadget['stock_quantity'] = 0;
+                        $gadget['effective_in_stock'] = 0;
+                    }
+                    
+                    if ($lowestPriceGbp !== null) {
+                        $gadget['effective_price_gbp'] = $lowestPriceGbp;
+                        // Override the base GBP price to ensure consistency
+                        $gadget['price_gbp'] = $lowestPriceGbp;
+                    } elseif ($gadget['price_gbp'] == 0 && $gadget['price'] > 0) {
+                        // Convert MWK to GBP if GBP is zero but MWK exists
+                        $gadget['effective_price_gbp'] = $gadget['price'] / 2358;
+                        $gadget['price_gbp'] = $gadget['price'] / 2358;
+                    } elseif ($gadget['price_gbp'] == 0) {
+                        // If no GBP price available, mark as zero
+                        $gadget['effective_price_gbp'] = 0;
+                    }
+                    
+                    // Override stock quantity with variant stock
+                    if ($totalVariantStock > 0) {
+                        $gadget['stock_quantity'] = $totalVariantStock;
+                        $gadget['qty'] = $totalVariantStock;
+                        $gadget['effective_in_stock'] = 1;
+                        $gadget['in_stock'] = 1;
+                    } elseif ($gadget['stock_quantity'] == 0) {
+                        // If no variant stock and gadget stock is zero, mark as out of stock
+                        $gadget['effective_in_stock'] = 0;
+                        $gadget['in_stock'] = 0;
+                    }
+                }
+            }
+            
             json_ok([
                 'success' => true,
                 'data' => $list,
@@ -451,13 +525,38 @@ function gadgets_detail($id) {
                     }
                     $vstmt->close();
                 }
+                // Calculate lowest variant prices for single gadget detail
+                $lowestPrice = null;
+                $lowestPriceGbp = null;
+                $totalVariantStock = 0;
+                
+                foreach ($variants as $variant) {
+                    if ($lowestPrice === null || $variant['price'] < $lowestPrice) {
+                        $lowestPrice = $variant['price'];
+                    }
+                    if ($variant['price_gbp'] !== null && 
+                        ($lowestPriceGbp === null || $variant['price_gbp'] < $lowestPriceGbp)) {
+                        $lowestPriceGbp = $variant['price_gbp'];
+                    }
+                    $totalVariantStock += $variant['stock_quantity'];
+                }
+                
+                // ENFORCE VARIANT-BASED PRICING for single gadget detail
+                $effectivePrice = $lowestPrice !== null ? $lowestPrice : (float)$row['price'];
+                $effectivePriceGbp = $lowestPriceGbp !== null ? $lowestPriceGbp : 
+                                   (($row['price_gbp'] != 0) ? (float)$row['price_gbp'] : 
+                                    (($row['price'] != 0) ? (float)$row['price'] / 2358 : 0));
+                
+                $effectiveStock = $totalVariantStock > 0 ? $totalVariantStock : (int)$row['stock_quantity'];
+                $effectiveInStock = $effectiveStock > 0 ? 1 : 0;
+                
                 $data = [
                     'id' => (int)$row['id'],
                     'name' => $row['name'],
                     'description' => $row['description'],
-                    'price' => (float)$row['price'],
+                    'price' => $effectivePrice,  // Use variant price if available
                     'monthly_price' => isset($row['monthly_price']) ? (float)$row['monthly_price'] : null,
-                    'price_gbp' => isset($row['price_gbp']) ? (float)$row['price_gbp'] : null,
+                    'price_gbp' => $effectivePriceGbp,  // Use variant GBP price if available
                     'monthly_price_gbp' => isset($row['monthly_price_gbp']) ? (float)$row['monthly_price_gbp'] : null,
                     'image_url' => $row['image_url'],
                     'category' => $row['category'],
@@ -467,12 +566,16 @@ function gadgets_detail($id) {
                     'specifications' => is_array($specs) ? $specs : [],
                     'has_3d_model' => (bool)($row['has_3d_model'] ?? false),
                     'model3d_path' => $row['model3d_path'] ?? null,
-                    'in_stock' => (int)$row['in_stock'],
-                    'stock_quantity' => (int)$row['stock_quantity'],
-                    'qty' => (int)$row['stock_quantity'],
+                    'in_stock' => $effectiveInStock,
+                    'stock_quantity' => $effectiveStock,
+                    'qty' => $effectiveStock,
+                    'effective_in_stock' => $effectiveInStock,
                     'has_variants' => (bool)($row['has_variants'] ?? false),
                     'total_variant_stock' => (int)($row['total_variant_stock'] ?? 0),
                     'variants' => $variants,
+                    'lowest_variant_price' => $lowestPrice,
+                    'lowest_variant_price_gbp' => $lowestPriceGbp,
+                    'variant_count' => count($variants),
                     'date' => $row['created_at'],
                 ];
                 json_ok(['success' => true, 'data' => $data]);
@@ -544,7 +647,45 @@ function gadgets_brands() {
     json_ok(['success' => true, 'data' => $list]);
 }
 
-// ---- Reviews feature ----
+// Helper function to fetch variants for multiple gadgets
+function get_variants_for_gadgets($gadgetIds) {
+    $db = DatabaseConnection::getInstance();
+    $conn = $db->getConnection();
+    if (!$conn) return [];
+
+    if (empty($gadgetIds)) return [];
+    
+    $placeholders = str_repeat('?,', count($gadgetIds) - 1) . '?';
+    $sql = "SELECT gadget_id, id, color, color_hex, storage, condition_status, price, price_gbp, stock_quantity, sku 
+            FROM gadget_variants 
+            WHERE gadget_id IN ($placeholders) AND is_active = 1 AND stock_quantity > 0
+            ORDER BY color ASC, storage ASC, price ASC";
+    
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) return [];
+    
+    $types = str_repeat('i', count($gadgetIds));
+    $stmt->bind_param($types, ...$gadgetIds);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    $variants = [];
+    while ($row = $result->fetch_assoc()) {
+        $variants[$row['gadget_id']][] = [
+            'id' => (int)$row['id'],
+            'color' => $row['color'],
+            'color_hex' => $row['color_hex'],
+            'storage' => $row['storage'],
+            'condition_status' => $row['condition_status'],
+            'price' => (float)$row['price'],
+            'price_gbp' => $row['price_gbp'] !== null ? (float)$row['price_gbp'] : null,
+            'stock_quantity' => (int)$row['stock_quantity'],
+            'sku' => $row['sku']
+        ];
+    }
+    $stmt->close();
+    return $variants;
+}
 function mask_identity($email, $fullName) {
     $source = $fullName && trim($fullName) !== '' ? trim($fullName) : ($email ?? 'user');
     $source = trim($source);
@@ -989,6 +1130,22 @@ function get_checkout_session_by_ref($txRef) {
         return null;
     }
 }
+
+/**
+ * Helper: load Square session data by txRef from square_sessions.json
+ */
+function get_square_session_by_ref($txRef) {
+    try {
+        $sessPath = __DIR__ . DIRECTORY_SEPARATOR . 'square_sessions.json';
+        if (!is_readable($sessPath)) { return null; }
+        $rawS = file_get_contents($sessPath);
+        $store = json_decode($rawS, true);
+        if (!is_array($store)) { return null; }
+        return $store[$txRef] ?? null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
 /**
  * Helper: update session status to paid and enrich
  */
@@ -1250,7 +1407,7 @@ function payments_notify_success() {
         if ($customerEmail && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
             $mailCustomer = getMailer();
             if (!$mailCustomer) { json_error('PHPMailer not installed.', 500); }
-            $mailCustomer->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Support');
+            $mailCustomer->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Gadgets');
             $mailCustomer->addAddress($customerEmail);
             $mailCustomer->Subject = $subjectCustomer;
             $mailCustomer->Body = $mailCardStart
@@ -1274,7 +1431,7 @@ function payments_notify_success() {
         // 2) Send notification to admin with CC to customer
         $mailAdmin = getMailer();
         if (!$mailAdmin) { json_error('PHPMailer not installed.', 500); }
-        $mailAdmin->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Support');
+        $mailAdmin->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Gadgets');
         $mailAdmin->addAddress('conradzikomo@gmail.com', 'Xtrapush Admin');
         // CC the customer so they receive a copy on the admin notification
         if ($customerEmail && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
@@ -1346,10 +1503,27 @@ function payments_notify_success() {
                     $paidAt = date('Y-m-d H:i:s');
                     $status = $isInstallment ? 'processing' : 'pending';
                     $pstatus = 'paid';
-                    $provider = 'paychangu';
+                    
+                    // Determine provider and get appropriate shipping address
+                    $provider = 'paychangu'; // default
                     $currencyDb = $currencyCode ?: 'MWK';
                     $totalAmount = $amount;
                     $addr = '';
+                    
+                    // Check if this is a Square payment (GBP currency or SQ- prefix)
+                    $isSquarePayment = ($currencyDb === 'GBP' || (strpos($txRef, 'SQ-') === 0));
+                    
+                    if ($isSquarePayment) {
+                        $provider = 'square';
+                        // Get shipping address from Square session
+                        $squareSession = get_square_session_by_ref($txRef);
+                        if (is_array($squareSession) && isset($squareSession['shippingAddress'])) {
+                            $addr = $squareSession['shippingAddress'];
+                            error_log("Using shipping address from Square session for txRef: $txRef - Address: " . substr($addr, 0, 50) . '...');
+                        } else {
+                            error_log("No shipping address found in Square session for txRef: $txRef");
+                        }
+                    }
                     $stmtIns = $conn->prepare("INSERT INTO orders (user_id, external_tx_ref, provider, total_amount, currency, status, payment_status, paid_at, shipping_address, billing_address, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     if ($stmtIns) {
                         $uidParam = $userId ?: null;
@@ -1970,7 +2144,7 @@ function square_create_checkout_session() {
         'checkout_options' => [
             'redirect_url' => $successUrl . '?tx_ref=' . $txRef . ($includeSubscription ? '&subscription=pending' : ''),
             'merchant_support_email' => 'support@itsxtrapush.com',
-            'ask_for_shipping_address' => true, // Need address for delivery
+            'ask_for_shipping_address' => false, // Use user's profile address instead
             'accepted_payment_methods' => [
                 'apple_pay' => true,
                 'google_pay' => true,
@@ -1983,7 +2157,45 @@ function square_create_checkout_session() {
     // Note: Subscription will be created separately after payment completes via webhook
     // The subscription_plan_id is stored in session data for webhook processing
 
-    if ($customerEmail) {
+    // Get user profile information including address for order processing
+    $shippingAddress = '';
+    if ($userUid) {
+        $db = DatabaseConnection::getInstance();
+        $conn = $db->getConnection();
+        if ($conn && !$conn->connect_errno) {
+            $stmt = $conn->prepare("SELECT full_name, address, town, postcode, phone FROM users WHERE uid = ? LIMIT 1");
+            if ($stmt) {
+                $stmt->bind_param('s', $userUid);
+                $stmt->execute();
+                $result = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                
+                if ($result) {
+                    // Construct full shipping address
+                    $addressParts = [];
+                    if (!empty($result['address'])) {
+                        $addressParts[] = $result['address'];
+                    }
+                    if (!empty($result['town'])) {
+                        $addressParts[] = $result['town'];
+                    }
+                    if (!empty($result['postcode'])) {
+                        $addressParts[] = $result['postcode'];
+                    }
+                    
+                    $shippingAddress = implode(', ', $addressParts);
+                    
+                    // Add customer name if available
+                    if (!empty($result['full_name']) && $customerEmail) {
+                        $checkoutPayload['pre_populated_data'] = [
+                            'buyer_email' => $customerEmail,
+                            'buyer_name' => $result['full_name']
+                        ];
+                    }
+                }
+            }
+        }
+    } elseif ($customerEmail) {
         $checkoutPayload['pre_populated_data'] = [
             'buyer_email' => $customerEmail
         ];
@@ -2009,7 +2221,7 @@ function square_create_checkout_session() {
         json_error('No checkout URL returned from Square', 502);
     }
 
-    // Store session data
+    // Store session data including shipping address
     try {
         $sessPath = __DIR__ . DIRECTORY_SEPARATOR . 'square_sessions.json';
         $store = [];
@@ -2042,6 +2254,7 @@ function square_create_checkout_session() {
             'includesSubscription' => $includeSubscription,
             'subscriptionTier' => $subscriptionTier,
             'userUid' => $userUid,
+            'shippingAddress' => $shippingAddress, // Store the profile address
             'status' => 'created',
             'createdAt' => date('Y-m-d H:i:s')
         ];
@@ -6604,7 +6817,7 @@ try {
 
             // Sender and recipient
             // From is pre-set in getMailer(); override here if needed
-            $mail->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Support');
+            $mail->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Gadgets');
             $mail->addAddress('conradzikomo@gmail.com', 'Xtrapush Admin');
             // CC the customer so they have a record
             if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -8792,7 +9005,7 @@ try {
                     $mail = getMailer();
                     if ($mail) {
                         // Customer confirmation email
-                        $mail->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Support');
+                        $mail->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Gadgets');
                         $mail->addAddress($userEmail, $userName);
                         $mail->Subject = 'Appointment Confirmed — Xtrapush Gadget Viewing';
                         
@@ -8815,7 +9028,7 @@ try {
                         // Admin notification with customer CC
                         $mail2 = getMailer();
                         if ($mail2) {
-                            $mail2->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Support');
+                            $mail2->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Gadgets');
                             $mail2->addAddress('conradzikomo@gmail.com', 'Xtrapush Admin');
                             $mail2->addCC($userEmail, $userName);
                             $mail2->addReplyTo($userEmail, $userName);
@@ -9004,7 +9217,7 @@ try {
             }
 
             // Sender and recipient
-            $mail->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Support');
+            $mail->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Gadgets');
             $mail->addAddress('conradzikomo@gmail.com', 'Xtrapush Admin');
             // CC the customer so they have a record of their booking
             if ($userEmail && filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {

@@ -4,14 +4,13 @@ import CloseIcon from '@mui/icons-material/Close';
 import Title from './Title';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { ordersAPI } from '../services/api.js';
-import { formatMWK } from '../utils/formatters';
 import { usePricing } from '../hooks/usePricing';
 import PrintableOrder from '../components/PrintableOrder.jsx';
 import { exportNodeToPdf, renderNodeToPdfUrl } from '../utils/pdf.js';
 
 export default function Orders() {
   const { user, isAdmin } = useAuth();
-  const { formatLocalPrice } = usePricing();
+  const { currency: userCurrency, isInMalawi } = usePricing();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -20,6 +19,35 @@ export default function Orders() {
   const orderPrintRef = useRef(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerUrl, setViewerUrl] = useState(null);
+
+  const normalizeCurrency = (code) => {
+    const c = (code || '').toUpperCase();
+    if (c === 'GBP' || c === 'MWK') return c;
+    return isInMalawi ? 'MWK' : 'GBP';
+  };
+
+  const normalizeAmount = (amount, currencyCode) => {
+    const curr = normalizeCurrency(currencyCode);
+    const num = Number(amount);
+    if (!Number.isFinite(num)) return 0;
+    if (curr === 'GBP') {
+      // Heuristic: backend may send minor units (pence). If very large, assume pence and scale.
+      if (Math.abs(num) >= 20000) return num / 100;
+      return num;
+    }
+    return num;
+  };
+
+  const formatAmount = (amount, currencyCode) => {
+    const curr = normalizeCurrency(currencyCode);
+    const value = normalizeAmount(amount, curr);
+    const formatter = new Intl.NumberFormat(curr === 'GBP' ? 'en-GB' : 'en-MW', {
+      style: 'currency',
+      currency: curr,
+      maximumFractionDigits: curr === 'MWK' ? 0 : 2,
+    });
+    return formatter.format(value);
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -128,7 +156,15 @@ export default function Orders() {
                     )}
                     <TableCell>{new Date(order.createdAt).toLocaleString()}</TableCell>
                     <TableCell>
-                      <Chip label={order.status || 'pending'} size="small" />
+                      <Chip 
+                        label={order.status === 'pre_order' ? 'PRE-ORDER' : (order.status || 'pending')} 
+                        size="small"
+                        sx={{
+                          bgcolor: order.status === 'pre_order' ? '#f59e0b' : undefined,
+                          color: order.status === 'pre_order' ? 'white' : undefined,
+                          fontWeight: order.status === 'pre_order' ? 700 : undefined
+                        }}
+                      />
                     </TableCell>
                     <TableCell>
                       <Chip label={order.paymentStatus || 'unpaid'} color={order.paymentStatus === 'paid' ? 'success' : 'default'} size="small" />
@@ -140,15 +176,15 @@ export default function Orders() {
                           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                             <Typography variant="body2">{it.name} x{it.quantity} ({it.brand} {it.model})</Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {it.storage ? `Storage: ${it.storage}` : 'Storage: —'}
-                              {typeof it.variantId !== 'undefined' && it.variantId !== null ? ` • Variant #${it.variantId}` : ''}
-                              {typeof it.unitPrice !== 'undefined' ? ` • Unit: ${formatLocalPrice(it.unitPrice)}` : ''}
+                                {it.storage ? `Storage: ${it.storage}` : 'Storage: —'}
+                                {typeof it.variantId !== 'undefined' && it.variantId !== null ? ` • Variant #${it.variantId}` : ''}
+                                {typeof it.unitPrice !== 'undefined' ? ` • Unit: ${formatAmount(it.unitPrice, it.currency || order.currency || userCurrency)}` : ''}
                             </Typography>
                           </Box>
                         </Box>
                       ))}
                     </TableCell>
-                    <TableCell align="right">{formatLocalPrice(order.totalAmount)}</TableCell>
+                      <TableCell align="right">{formatAmount(order.totalAmount ?? order.total_amount, order.currency || userCurrency)}</TableCell>
                     <TableCell align="right">
                       <Button
                         variant="outlined"

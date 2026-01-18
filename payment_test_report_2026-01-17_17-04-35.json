@@ -1,0 +1,108 @@
+{
+    "test_run": "2026-01-17 17:04:35",
+    "test_user_id": "test_user_1768669473",
+    "test_transaction_ref": "TEST-PAYMENT-1768669473",
+    "api_base_url": "https:\/\/sparkle-pro.co.uk\/api",
+    "results": [
+        {
+            "timestamp": "2026-01-17 17:04:33",
+            "test": "API Health",
+            "status": "PASS",
+            "message": "API is responding",
+            "data": null
+        },
+        {
+            "timestamp": "2026-01-17 17:04:33",
+            "test": "MWK Payment Processing",
+            "status": "FAIL",
+            "message": "HTTP 422 - {\"success\":false,\"error\":\"Invalid amount\"}",
+            "data": null
+        },
+        {
+            "timestamp": "2026-01-17 17:04:33",
+            "test": "GBP Payment Processing",
+            "status": "FAIL",
+            "message": "HTTP 422 - {\"success\":false,\"error\":\"Invalid amount\"}",
+            "data": null
+        },
+        {
+            "timestamp": "2026-01-17 17:04:33",
+            "test": "Database Recording",
+            "status": "FAIL",
+            "message": "Failed to fetch orders: HTTP 404",
+            "data": null
+        },
+        {
+            "timestamp": "2026-01-17 17:04:33",
+            "test": "User Dashboard API",
+            "status": "FAIL",
+            "message": "HTTP 404 - Dashboard not accessible",
+            "data": null
+        },
+        {
+            "timestamp": "2026-01-17 17:04:33",
+            "test": "Admin Analytics API",
+            "status": "PASS",
+            "message": "Admin dashboard endpoint responding",
+            "data": null
+        },
+        {
+            "timestamp": "2026-01-17 17:04:33",
+            "test": "Order Statistics",
+            "status": "INFO",
+            "message": "Admin order stats available",
+            "data": {
+                "total_orders": "17",
+                "pending_orders": "13",
+                "completed_orders": "0"
+            }
+        },
+        {
+            "timestamp": "2026-01-17 17:04:33",
+            "test": "Revenue Statistics",
+            "status": "INFO",
+            "message": "Admin revenue stats available",
+            "data": {
+                "mwk_total": 295399,
+                "gbp_total": 105.49,
+                "mwk_this_month": 295399,
+                "gbp_this_month": 105.49
+            }
+        },
+        {
+            "timestamp": "2026-01-17 17:04:33",
+            "test": "Analytics Data Freshness",
+            "status": "INFO",
+            "message": "Dashboard data timestamp",
+            "data": {
+                "last_updated": "2026-01-17 17:00:02"
+            }
+        },
+        {
+            "timestamp": "2026-01-17 17:04:35",
+            "test": "Order Count Update",
+            "status": "INFO",
+            "message": "Order count unchanged: 17 \u2192 17 (may be cached)",
+            "data": null
+        },
+        {
+            "timestamp": "2026-01-17 17:04:35",
+            "test": "Revenue Tracking",
+            "status": "INFO",
+            "message": "Revenue comparison",
+            "data": {
+                "mwk_before": 295399,
+                "mwk_after": 295399,
+                "gbp_before": 105.49,
+                "gbp_after": 105.49
+            }
+        }
+    ],
+    "summary": {
+        "total_tests": 11,
+        "passed": 2,
+        "failed": 4,
+        "warnings": 0,
+        "success_rate": 18.2
+    }
+}

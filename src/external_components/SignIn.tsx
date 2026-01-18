@@ -127,6 +127,7 @@ export default function SignIn(props: { disableCustomTheme?: boolean }) {
   const [activeSlide, setActiveSlide] = React.useState(0);
   const [displayedHeaderText, setDisplayedHeaderText] = React.useState('');
   const [displayedSloganText, setDisplayedSloganText] = React.useState('');
+  const [googleSigninLoading, setGoogleSigninLoading] = React.useState(false);
   const navigate = useNavigate();
   const { hydrateBackendSession } = useAuth();
 
@@ -716,22 +717,16 @@ export default function SignIn(props: { disableCustomTheme?: boolean }) {
   fullWidth
   variant="outlined"
   onClick={async () => {
+    setGoogleSigninLoading(true);
     try {
-      console.log('🔄 Initiating Google Sign-In for itsxtrapush.com deployment...');
+      console.log('🔄 Initiating Google Sign-In...');
       
-      // Enhanced domain verification
       const isDomainAuthorized = checkDomainAuthorization();
       if (!isDomainAuthorized) {
         console.warn('⚠️ Domain authorization check failed - proceeding anyway for production');
       }
       
-      // Configure additional settings for production
       const customProvider = provider;
-      
-      // For production deployment on itsxtrapush.com
-      if (window.location.hostname === 'itsxtrapush.com' || window.location.hostname === 'www.itsxtrapush.com') {
-        console.log('🎆 Production environment detected - optimizing for itsxtrapush.com');
-      }
       
       console.log('🔐 Starting Google OAuth popup...');
       const result = await signInWithPopup(auth, customProvider);
@@ -759,6 +754,7 @@ export default function SignIn(props: { disableCustomTheme?: boolean }) {
           localStorage.setItem('backendUser', JSON.stringify(response.user));
           localStorage.setItem('backendSession', 'true');
           try { await hydrateBackendSession(response.user); } catch (e) { console.warn('Hydrate failed:', e); }
+          navigate('/dashboard');
         }
       } catch (backendError: any) {
         console.warn('⚠️ Backend registration failed:', backendError?.response?.data || backendError?.message);
@@ -776,29 +772,28 @@ export default function SignIn(props: { disableCustomTheme?: boolean }) {
               localStorage.setItem('backendUser', JSON.stringify(linkResp.user));
               localStorage.setItem('backendSession', 'true');
               try { await hydrateBackendSession(linkResp.user); } catch (e) { console.warn('Hydrate failed:', e); }
+              navigate('/dashboard');
             } else {
-              throw new Error(linkResp?.error || 'Linking failed');
+              setGoogleSigninLoading(false);
+              alert('An account with this email already exists. Please sign in with your email and password, then link Google in your account settings.');
+              await signOut(auth);
             }
           } catch (linkErr: any) {
+            setGoogleSigninLoading(false);
             console.error('❌ Linking failed:', linkErr?.response?.data || linkErr?.message);
-            alert('We found an existing email/password account for this email. Please sign in with your email and password, then link Google in your account settings.');
+            alert('An account with this email already exists. Please sign in with your email and password, then link Google in your account settings.');
             await signOut(auth);
-            return;
           }
         } else {
-          // Non-linkable backend error; continue with Firebase-only session
           console.warn('Proceeding without backend session due to non-linkable error');
+          navigate('/dashboard');
         }
       }
       
-      // Successful redirect to dashboard
-      console.log('🏠 Authentication complete - redirecting to dashboard...');
-      navigate('/dashboard');
-      
     } catch (error: unknown) {
+      setGoogleSigninLoading(false);
       console.error('❌ Google Sign-In Error:', error);
       
-      // Safely narrow unknown error to extract code/message
       let errorCode = 'unknown';
       let errMessage = 'Unknown error';
       if (typeof error === 'object' && error !== null) {
@@ -810,68 +805,44 @@ export default function SignIn(props: { disableCustomTheme?: boolean }) {
       console.error('📝 Full error context:', {
         code: errorCode,
         message: errMessage,
-        domain: window.location.hostname,
-        origin: window.location.origin,
-        userAgent: navigator.userAgent.substring(0, 100),
-        timestamp: new Date().toISOString()
+        domain: window.location.hostname
       });
       
-      // Enhanced user-friendly error messages
-      let errorMessage = 'Sign-in failed. Please try again.';
-      let technicalInfo = '';
+      let errorMessage = 'Sign-in with Google failed. Please try again.';
       
       switch (errorCode) {
         case 'auth/popup-closed-by-user':
           errorMessage = 'Sign-in was cancelled. Please try again.';
           break;
         case 'auth/popup-blocked':
-          errorMessage = 'Pop-up was blocked by your browser. Please allow pop-ups for this site and try again.';
-          technicalInfo = 'Enable pop-ups in your browser settings.';
+          errorMessage = 'Pop-up was blocked. Please enable pop-ups in your browser settings and try again.';
           break;
         case 'auth/network-request-failed':
           errorMessage = 'Network error. Please check your internet connection and try again.';
-          technicalInfo = 'Verify internet connectivity and firewall settings.';
           break;
         case 'auth/unauthorized-domain':
-          errorMessage = 'This domain is not authorized for Google sign-in.';
-          technicalInfo = `Domain '${window.location.hostname}' needs to be added to Firebase Console.`;
-          console.error('🚨 CRITICAL: Domain authorization required!');
-          console.error('📝 Action needed: Add itsxtrapush.com to Firebase Console → Authentication → Settings → Authorized domains');
+          errorMessage = 'This domain is not authorized for Google sign-in. Please contact support.';
           break;
         case 'auth/operation-not-allowed':
-          errorMessage = 'Google sign-in is not enabled for this application.';
-          technicalInfo = 'Google authentication needs to be enabled in Firebase Console.';
+          errorMessage = 'Google sign-in is not enabled. Please contact support.';
           break;
         case 'auth/account-exists-with-different-credential':
-          errorMessage = 'An account already exists with the same email but different sign-in method.';
-          technicalInfo = 'Try signing in with email/password instead.';
+          errorMessage = 'An account with this email exists with a different sign-in method. Try signing in with email/password instead.';
           break;
         case 'auth/internal-error':
-          errorMessage = 'Internal authentication error. Please try again.';
-          technicalInfo = 'This may be a temporary server issue.';
+          errorMessage = 'Internal authentication error. Please try again or contact support.';
           break;
         default:
-          errorMessage = `Authentication failed: ${errMessage}`;
-          technicalInfo = `Error code: ${errorCode}`;
+          errorMessage = errorCode === 'unknown' ? 'Sign-in failed. Please try again.' : `Authentication failed: ${errMessage}`;
       }
       
-      // Show error to user
-      alert(`${errorMessage}${technicalInfo ? '\n\nTechnical details: ' + technicalInfo : ''}`);
-      
-      // Additional logging for production debugging
-      if (window.location.hostname === 'itsxtrapush.com' || window.location.hostname === 'www.itsxtrapush.com') {
-        console.error('🎆 PRODUCTION ERROR on itsxtrapush.com:', {
-          errorCode: errorCode,
-          errorMessage: errMessage,
-          domain: window.location.hostname,
-          timestamp: new Date().toISOString()
-        });
-      }
+      alert(errorMessage);
     }
   }}
+  disabled={googleSigninLoading}
   startIcon={<GoogleIcon />}
 >
-              Sign in with Google
+              {googleSigninLoading ? 'Signing in...' : 'Sign in with Google'}
             </Button>
           </Box>
         </Card>

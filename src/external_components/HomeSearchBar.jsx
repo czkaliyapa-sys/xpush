@@ -24,14 +24,14 @@ const HomeSearchBar = ({ onSearch }) => {
 
     const searchGadgets = async () => {
       try {
-        const response = await gadgetsAPI.getAll({ page: 1, limit: 20 });
-        if (response.success) {
-          const filteredResults = response.data.filter(gadget => 
-            gadget.name.toLowerCase().includes(query.toLowerCase()) ||
-            gadget.description.toLowerCase().includes(query.toLowerCase())
-          );
-          setSearchResults(filteredResults);
+        // Use dedicated search API to query full database instead of limited getAll
+        const response = await gadgetsAPI.search(query);
+        if (response && response.success && Array.isArray(response.data)) {
+          setSearchResults(response.data);
           setShowResults(true);
+        } else {
+          setSearchResults([]);
+          setShowResults(false);
         }
       } catch (error) {
         console.error('Error searching gadgets:', error);
@@ -40,16 +40,17 @@ const HomeSearchBar = ({ onSearch }) => {
       }
     };
 
-    searchGadgets();
+    // Debounce search requests to avoid excessive API calls
+    const debounceTimer = setTimeout(searchGadgets, 300);
+    return () => clearTimeout(debounceTimer);
   }, [query]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (query.trim() !== '') {
-      // Navigate to gadgets page if there are results
-      if (searchResults.length > 0) {
-        navigate(`/gadgets/${searchResults[0].id}`);
-      }
+      // Navigate to gadgets search page with query parameter
+      // This ensures the search is performed on the Gadgets page with full database access
+      navigate(`/gadgets?search=${encodeURIComponent(query)}`);
     }
     if (onSearch) onSearch(query);
   };

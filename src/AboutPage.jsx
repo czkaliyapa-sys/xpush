@@ -50,7 +50,7 @@ const AboutPage = () => {
       },
       {
         icon: <HandshakeIcon sx={{ fontSize: 40, color: '#48cedb' }} />, 
-        title: "Mobile Money",
+        title: "Card & Mobile Money",
         description: "PayChangu payments accepted"
       }
     ]
