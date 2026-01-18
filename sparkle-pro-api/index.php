@@ -210,8 +210,35 @@ function gadgets_list() {
         }
         if ($category) { $conds[] = "category = ?"; $params[] = $category; $types .= 's'; }
         if ($brand) { $conds[] = "brand = ?"; $params[] = $brand; $types .= 's'; }
-        if ($minPrice !== null) { $conds[] = "$priceField >= ?"; $params[] = $minPrice; $types .= 'd'; }
-        if ($maxPrice !== null) { $conds[] = "$priceField <= ?"; $params[] = $maxPrice; $types .= 'd'; }
+        if ($minPrice !== null || $maxPrice !== null) {
+            // For price filtering, we need to check both main gadget prices AND variant prices
+            // Create a subquery to get the lowest price for each gadget (either main or variant)
+            $priceSubquery = "(SELECT 
+                CASE 
+                    WHEN gv.id IS NOT NULL THEN 
+                        LEAST(
+                            COALESCE(MIN(CASE WHEN gv.is_active = 1 THEN gv.$priceField END), g.$priceField),
+                            g.$priceField
+                        )
+                    ELSE g.$priceField 
+                END as effective_price
+                FROM gadgets g 
+                LEFT JOIN gadget_variants gv ON g.id = gv.gadget_id AND gv.is_active = 1
+                WHERE g.id = gadgets.id
+                GROUP BY g.id
+            )";
+            
+            if ($minPrice !== null) { 
+                $conds[] = "$priceSubquery >= ?"; 
+                $params[] = $minPrice; 
+                $types .= 'd'; 
+            }
+            if ($maxPrice !== null) { 
+                $conds[] = "$priceSubquery <= ?"; 
+                $params[] = $maxPrice; 
+                $types .= 'd'; 
+            }
+        }
         // Qty-only availability filtering
         if ($inStock !== null) {
             if ($inStock) { $conds[] = "(stock_quantity > 0)"; }

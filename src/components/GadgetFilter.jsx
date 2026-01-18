@@ -59,6 +59,9 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
     stock: false,
     condition: false
   });
+  
+  // Debounce timer for price slider
+  const priceDebounceTimer = useRef(null);
 
   // Map friendly condition labels to backend enum tokens
   const CONDITION_LABEL_TO_TOKEN = {
@@ -113,6 +116,15 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
     prevMaxRef.current = maxPrice;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxPrice]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (priceDebounceTimer.current) {
+        clearTimeout(priceDebounceTimer.current);
+      }
+    };
+  }, []);
 
   // Fetch filter options
   useEffect(() => {
@@ -172,7 +184,7 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
     applyFilters(newFilters);
   };
 
-  // Handle price range change
+  // Handle price range change with debouncing
   const handlePriceChange = (event, newValue) => {
     const newFilters = { 
       ...filters, 
@@ -181,10 +193,26 @@ const GadgetFilter = ({ onFiltersChange, currentFilters = {}, isMobile = false, 
     };
     setFilters(newFilters);
     setPriceRange(newValue);
+    
+    // Clear existing timer
+    if (priceDebounceTimer.current) {
+      clearTimeout(priceDebounceTimer.current);
+    }
+    
+    // Set new timer to apply filters after 300ms of inactivity
+    priceDebounceTimer.current = setTimeout(() => {
+      applyFilters(newFilters);
+    }, 300);
   };
 
   // Apply price filter (on mouseup to avoid too many API calls)
   const handlePriceCommit = (event, newValue) => {
+    // Clear any pending debounced calls
+    if (priceDebounceTimer.current) {
+      clearTimeout(priceDebounceTimer.current);
+      priceDebounceTimer.current = null;
+    }
+    
     const newFilters = { 
       ...filters, 
       priceMin: newValue[0], 
