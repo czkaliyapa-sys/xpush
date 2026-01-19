@@ -19,25 +19,42 @@ export const variantPricingUtils = {
    * @returns {Object} Enhanced gadget with variant pricing
    */
   processGadgetWithVariants: (gadget, variants = []) => {
-    // Calculate lowest variant price if variants exist
+    // Debug logging
+    console.log('Processing gadget:', {
+      id: gadget.id,
+      name: gadget.name,
+      is_pre_order: gadget.is_pre_order,
+      stock_quantity: gadget.stock_quantity,
+      has_variants: gadget.has_variants,
+      variants_count: variants.length
+    });
+    
+    // NEW LOGIC: Aggregate stock from ALL variants regardless of active status
+    let totalVariantStock = 0;
+    let hasAnyVariants = Array.isArray(variants) && variants.length > 0;
+    
+    // Sum ALL variant stock (both active and inactive variants)
+    if (hasAnyVariants) {
+      totalVariantStock = variants.reduce((sum, v) => 
+        sum + parseInt(v.stock_quantity ?? 0, 10), 0
+      );
+    }
+    
+    // Calculate lowest variant price from ACTIVE variants only
     let lowestPrice = null;
     let lowestPriceGbp = null;
-    let totalVariantStock = 0;
+    let lowestPriceMwk = null;
     let hasActiveVariants = false;
     
-    if (Array.isArray(variants) && variants.length > 0) {
-      // Filter active variants with stock
-      const validVariants = variants.filter(v => 
-        (v.is_active ?? 1) === 1 && 
-        String(v.condition_status) !== 'poor' &&
-        (parseInt(v.stock_quantity ?? 0, 10) > 0)
-      );
+    if (hasAnyVariants) {
+      // Filter active variants for pricing calculations
+      const activeVariants = variants.filter(v => (v.is_active ?? 1) === 1);
       
-      if (validVariants.length > 0) {
+      if (activeVariants.length > 0) {
         hasActiveVariants = true;
         
-        // Sort by price to get lowest
-        const sortedByPrice = [...validVariants].sort((a, b) => {
+        // Sort by price to get lowest from active variants
+        const sortedByPrice = [...activeVariants].sort((a, b) => {
           const priceA = parseFloat(a.price || a.price_gbp || 0);
           const priceB = parseFloat(b.price || b.price_gbp || 0);
           return priceA - priceB;
@@ -46,37 +63,58 @@ export const variantPricingUtils = {
         const cheapestVariant = sortedByPrice[0];
         lowestPrice = cheapestVariant.price;
         lowestPriceGbp = cheapestVariant.price_gbp || cheapestVariant.priceGbp;
-        
-        // Sum up all variant stock
-        totalVariantStock = validVariants.reduce((sum, v) => 
-          sum + parseInt(v.stock_quantity ?? 0, 10), 0
-        );
+        lowestPriceMwk = cheapestVariant.price_mwk || cheapestVariant.priceMwk;
       }
     }
     
+    // Determine final stock quantity - use variant stock if variants exist, otherwise main stock
+    const finalStockQuantity = hasAnyVariants ? totalVariantStock : (gadget.stock_quantity || 0);
+    
+    // NEW LOGIC: Zero stock means pre-order only
+    const isZeroStock = finalStockQuantity === 0;
+    
     // Enhance gadget with variant-derived data
-    return {
+    const processedGadget = {
       ...gadget,
       // Override prices with lowest variant prices if available
       price: lowestPrice || gadget.price,
       price_gbp: lowestPriceGbp || gadget.price_gbp || gadget.priceGbp,
-      // Override stock with total variant stock if variants exist
-      stock_quantity: totalVariantStock > 0 ? totalVariantStock : gadget.stock_quantity,
+      price_mwk: lowestPriceMwk || gadget.price_mwk || gadget.priceMwk || gadget.price,
+      // NEW: Use total variant stock as the definitive stock quantity
+      stock_quantity: finalStockQuantity,
+      // NEW: Force pre-order status for zero stock items
+      is_pre_order: isZeroStock ? 1 : gadget.is_pre_order,
       // Preserve original data for reference
       original_price: gadget.price,
       original_price_gbp: gadget.price_gbp || gadget.priceGbp,
       original_stock: gadget.stock_quantity,
       // Metadata
-      has_variants: variants.length > 0,
+      has_variants: hasAnyVariants,
       has_active_variants: hasActiveVariants,
       variant_count: variants.length,
-      active_variant_count: totalVariantStock > 0 ? variants.filter(v => 
+      active_variant_count: variants.filter(v => 
         (v.is_active ?? 1) === 1 && parseInt(v.stock_quantity ?? 0, 10) > 0
-      ).length : 0,
+      ).length,
       total_variant_stock: totalVariantStock,
       lowest_variant_price: lowestPrice,
-      lowest_variant_price_gbp: lowestPriceGbp
+      lowest_variant_price_gbp: lowestPriceGbp,
+      lowest_variant_price_mwk: lowestPriceMwk
     };
+    
+    // Debug logging for zero stock items
+    if (isZeroStock) {
+      console.log('📦 Zero stock gadget (will show pre-order only):', {
+        id: processedGadget.id,
+        name: processedGadget.name,
+        has_variants: processedGadget.has_variants,
+        variant_count: processedGadget.variant_count,
+        total_variant_stock: processedGadget.total_variant_stock,
+        final_stock: processedGadget.stock_quantity,
+        forced_pre_order: processedGadget.is_pre_order
+      });
+    }
+    
+    return processedGadget;
   },
 
   /**

@@ -83,11 +83,31 @@ export const getPriceValidationError = (price, currency = 'MWK') => {
  * @returns {Object} - { isValid: boolean, reason: string }
  */
 export const isGadgetAvailableForPurchase = (gadget, currency = 'MWK') => {
+  // Check if this is a pre-order item (check multiple possible field names)
+  const isPreOrderItem = gadget?.isPreOrder === true || gadget?.is_pre_order === 1 || gadget?.is_pre_order === true;
+  
+  // Check if this is a fully out-of-stock variant item
+  const isFullyOutOfStock = gadget?.is_fully_out_of_stock === true;
+  
   // Check stock availability
   const stockQuantity = gadget?.stock_quantity ?? gadget?.number ?? gadget?.qty ?? 0;
   const inStock = stockQuantity > 0 || gadget?.in_stock || gadget?.inStock;
   
-  if (!inStock && !gadget?.isPreOrder) {
+  // Handle different scenarios:
+  // 1. Pre-order items: allow zero stock but need valid price
+  // 2. Fully out-of-stock variant items: show specific message
+  // 3. Regular items: both stock and price required
+  
+  if (isFullyOutOfStock) {
+    return {
+      isValid: false,
+      reason: 'All variants are currently out of stock. Please check back later.'
+    };
+  }
+  
+  // For pre-order items, zero stock is acceptable
+  // For regular items, stock is required
+  if (!inStock && !isPreOrderItem) {
     return {
       isValid: false,
       reason: 'Item is out of stock'
@@ -102,16 +122,40 @@ export const isGadgetAvailableForPurchase = (gadget, currency = 'MWK') => {
     priceToCheck = gadget?.price_mwk ?? gadget?.priceMwk ?? gadget?.price;
   }
   
-  if (!isValidPriceForCheckout(priceToCheck, currency)) {
-    return {
-      isValid: false,
-      reason: getPriceValidationError(priceToCheck, currency)
-    };
+  // For pre-order items, we're more lenient with price validation
+  // They can have zero prices if variants exist or admin hasn't set final pricing
+  if (isPreOrderItem) {
+    const numericPrice = typeof priceToCheck === 'string' 
+      ? parseFloat(priceToCheck.replace(/[^0-9.]/g, '')) 
+      : Number(priceToCheck);
+    
+    // For pre-order items, accept any valid number (including zero)
+    // This allows for:
+    // - Items with variant-based pricing (main item price can be 0)
+    // - Items where admin hasn't finalized pricing yet
+    // - Placeholder items awaiting stock
+    if (!Number.isFinite(numericPrice)) {
+      return {
+        isValid: false,
+        reason: 'Pre-order item requires valid pricing. Please contact support or check back later.'
+      };
+    }
+    
+    // Allow zero prices for pre-order items - they may have variant pricing
+    // or admin might set pricing later
+  } else {
+    // Regular items use strict price validation
+    if (!isValidPriceForCheckout(priceToCheck, currency)) {
+      return {
+        isValid: false,
+        reason: getPriceValidationError(priceToCheck, currency)
+      };
+    }
   }
   
   return {
     isValid: true,
-    reason: 'Available for purchase'
+    reason: isPreOrderItem ? 'Available for pre-order' : 'Available for purchase'
   };
 };
 

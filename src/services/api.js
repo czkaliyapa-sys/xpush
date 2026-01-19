@@ -382,6 +382,7 @@ export const gadgetsAPI = {
             image: normalizeImageUrl(item.image || item.image_url),
             monthlyPrice: item.monthly_price ?? item.monthlyPrice ?? 0,
             stockQuantity: normalizedQty,
+            number: normalizedQty, // Ensure 'number' field is available for ItemCard3D
             inStock: available,
             condition: item.condition ?? item.condition_status ?? undefined,
             price_gbp: item.price_gbp ?? item.priceGbp ?? undefined,

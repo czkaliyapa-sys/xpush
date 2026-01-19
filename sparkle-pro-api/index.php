@@ -288,7 +288,7 @@ function gadgets_list() {
 
         // Fetch data with pagination
         // Qty-only ordering: all qty>0 first, then most recent
-        $dataSql = "SELECT id, name, description, price, monthly_price, price_gbp, monthly_price_gbp, image_url, category, brand, model, condition_status, specifications, in_stock, stock_quantity, created_at $base" . $where . " ORDER BY (CASE WHEN stock_quantity > 0 THEN 1 ELSE 0 END) DESC, created_at DESC LIMIT ? OFFSET ?";
+        $dataSql = "SELECT id, name, description, price, monthly_price, price_gbp, monthly_price_gbp, image_url, category, brand, model, condition_status, specifications, in_stock, stock_quantity, is_pre_order, created_at $base" . $where . " ORDER BY (CASE WHEN stock_quantity > 0 THEN 1 ELSE 0 END) DESC, created_at DESC LIMIT ? OFFSET ?";
         $dtypes = $types . 'ii';
         $dparams = $params; $dparams[] = $limit; $dparams[] = $offset;
         $dstmt = $conn->prepare($dataSql);
@@ -315,6 +315,7 @@ function gadgets_list() {
                     'specifications' => is_array($specs) ? $specs : [],
                     'in_stock' => (int)$row['in_stock'],
                     'stock_quantity' => (int)$row['stock_quantity'],
+                    'is_pre_order' => isset($row['is_pre_order']) ? (int)$row['is_pre_order'] : 0,
                     'qty' => (int)$row['stock_quantity'],
                     // Qty-only effective availability
                     'effective_in_stock' => (((int)$row['stock_quantity']) > 0) ? 1 : 0,
@@ -530,7 +531,7 @@ function gadgets_detail($id) {
     $db = DatabaseConnection::getInstance();
     $conn = $db->getConnection();
     if ($conn && !$conn->connect_errno) {
-        $sql = "SELECT id, name, description, price, monthly_price, price_gbp, monthly_price_gbp, image_url, category, brand, model, condition_status, specifications, has_3d_model, model3d_path, in_stock, stock_quantity, COALESCE(total_variant_stock, 0) as total_variant_stock, COALESCE(has_variants, 0) as has_variants, created_at FROM gadgets WHERE id = ? AND is_active = 1 LIMIT 1";
+        $sql = "SELECT id, name, description, price, monthly_price, price_gbp, monthly_price_gbp, image_url, category, brand, model, condition_status, specifications, has_3d_model, model3d_path, in_stock, stock_quantity, is_pre_order, COALESCE(total_variant_stock, 0) as total_variant_stock, COALESCE(has_variants, 0) as has_variants, created_at FROM gadgets WHERE id = ? AND is_active = 1 LIMIT 1";
         $stmt = $conn->prepare($sql);
         if ($stmt) {
             $stmt->bind_param('i', $id);
@@ -4757,7 +4758,7 @@ function getAdminGadgetById($gadgetId) {
         $admin = getAdminByUid($conn, $adminUid);
         if (!$admin) { http_response_code(403); echo json_encode(['success' => false,'error' => 'Admin permissions required']); return; }
         
-        $sql = "SELECT id, name, description, price, monthly_price, price_gbp, monthly_price_gbp, image_url, category, brand, model, condition_status, specifications, in_stock, stock_quantity, has_3d_model, model3d_path, created_at, updated_at FROM gadgets WHERE id = ? AND is_active = 1 LIMIT 1";
+        $sql = "SELECT id, name, description, price, monthly_price, price_gbp, monthly_price_gbp, image_url, category, brand, model, condition_status, specifications, in_stock, stock_quantity, is_pre_order, has_3d_model, model3d_path, created_at, updated_at FROM gadgets WHERE id = ? AND is_active = 1 LIMIT 1";
         $stmt = $conn->prepare($sql);
         if (!$stmt) { throw new Exception('Prepare failed: ' . $conn->error); }
         
@@ -4795,6 +4796,7 @@ function getAdminGadgetById($gadgetId) {
                 'conditionStatus' => $gadget['condition_status'],
                 'specifications' => $specs,
                 'inStock' => (bool)$gadget['in_stock'],
+                'isPreOrder' => isset($gadget['is_pre_order']) ? (bool)$gadget['is_pre_order'] : false,
                 'stockQuantity' => (int)$gadget['stock_quantity'],
                 'has3dModel' => (bool)$gadget['has_3d_model'],
                 'model3dPath' => $gadget['model3d_path'],
@@ -4839,6 +4841,7 @@ function updateAdminGadget($gadgetId) {
             $params[] = $data['description'];
             $types .= 's';
         }
+        
         
         if (isset($data['image']) || isset($data['imageUrl'])) {
             $updates[] = 'image_url = ?';
@@ -4992,6 +4995,7 @@ function getAdminGadgetVariants($gadgetId) {
                 'price' => (float)$row['price'],
                 'priceGbp' => $row['price_gbp'] !== null ? (float)$row['price_gbp'] : null,
                 'stockQuantity' => (int)$row['stock_quantity'],
+                'isPreOrder' => isset($row['is_pre_order']) ? (bool)$row['is_pre_order'] : false,
                 'sku' => $row['sku'],
                 'isActive' => (bool)$row['is_active'],
                 'createdAt' => $row['created_at'],

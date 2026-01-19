@@ -49,6 +49,7 @@ interface ItemCard3DProps {
   brand?: string;
   condition?: string;
   category?: string;
+  is_pre_order?: boolean | number; // Pre-order status from API
 }
 
 const ItemCard3D: React.FC<ItemCard3DProps> = ({
@@ -65,7 +66,8 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
   description,
   brand,
   condition,
-  category
+  category,
+  is_pre_order
 }) => {
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
@@ -85,11 +87,45 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
   // Check if gadget is available for purchase
   const purchaseAvailability = React.useMemo(() => 
     isGadgetAvailableForPurchase(
-      { price, priceMwk, priceGbp, number, in_stock: number > 0 }, 
+      { 
+        price, 
+        priceMwk, 
+        priceGbp, 
+        number, 
+        in_stock: number > 0,
+        isPreOrder: is_pre_order === 1 || is_pre_order === true
+      }, 
       isInMalawi ? 'MWK' : 'GBP'
     ), 
-    [price, priceMwk, priceGbp, number, isInMalawi]
+    [price, priceMwk, priceGbp, number, is_pre_order, isInMalawi]
   );
+
+  // Determine if item should show pre-order button
+  const shouldShowPreOrder = React.useMemo(() => {
+    // Show pre-order when:
+    // 1. Item is marked as pre-order in database
+    // 2. OR item has zero stock (fallback logic)
+    const hasZeroStock = number === 0;
+    const isMarkedPreOrder = is_pre_order === 1 || is_pre_order === true;
+    
+    return isMarkedPreOrder || hasZeroStock;
+  }, [number, is_pre_order]);
+  
+  // Debug logging for zero stock items
+  React.useEffect(() => {
+    if (number === 0 && (price === 0 || price === null)) {
+      console.log('🔍 Zero stock item with potential pricing issue:', {
+        id,
+        title,
+        is_pre_order,
+        number,
+        price,
+        priceGbp,
+        priceMwk,
+        shouldShowPreOrder
+      });
+    }
+  }, [id, title, is_pre_order, number, price, priceGbp, priceMwk, shouldShowPreOrder]);
 
   // Determine which price to use based on user's location
   // For Malawi users: use MWK price directly (no conversion)
@@ -214,19 +250,10 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
     e.preventDefault();
     e.stopPropagation();
     
-    // Pre-order items must have valid prices - no point pre-ordering items with zero prices
+    // For pre-order items, validate that we have valid pricing
+    // But allow zero stock (that's the whole point of pre-order)
     if (!purchaseAvailability.isValid) {
       setSnackbarMessage(purchaseAvailability.reason);
-      setSnackbarOpen(true);
-      return;
-    }
-    
-    // Stock check for pre-order items
-    const stockQuantity = number ?? 0;
-    const inStock = stockQuantity > 0;
-    
-    if (!inStock) {
-      setSnackbarMessage('Item is out of stock');
       setSnackbarOpen(true);
       return;
     }
@@ -449,8 +476,8 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
             alignItems: 'stretch'
           }}
         >
-          {/* Show Pre-Order button ONLY when out of stock, otherwise show normal buttons */}
-          {outOfStock ? (
+          {/* Show Pre-Order button ONLY when pre-order mode, otherwise show normal buttons */}
+          {shouldShowPreOrder ? (
             /* PRE-ORDER BUTTON - Only visible when item is out of stock */
             <Box
               sx={{

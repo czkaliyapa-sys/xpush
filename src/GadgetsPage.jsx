@@ -303,14 +303,32 @@ const GadgetsPage = ({ category: propCategory }) => {
       if (response && response.success && Array.isArray(response.data)) {
         console.log('✅ Valid gadgets response:', response.data.length, 'gadgets');
         
+// Removed debug logging
+        
         // Only combine lists for page > 1, otherwise start fresh
         const baseList = pageNum > 1 ? [...gadgets, ...response.data] : response.data;
         console.log('🧮 Base list count:', baseList.length, 'pageNum:', pageNum);
         
         // Preprocess gadgets using centralized variant pricing system
-        const processedGadgets = baseList.map(gadget => 
-          variantPricingUtils.processGadgetWithVariants(gadget, gadget.variants || [])
-        );
+        const processedGadgets = baseList.map(gadget => {
+          const processed = variantPricingUtils.processGadgetWithVariants(gadget, gadget.variants || []);
+          
+          // Debug: log any gadget with variants but zero stock
+          if (processed.has_variants && (processed.stock_quantity === 0 || processed.total_variant_stock === 0)) {
+            console.log('📦 Zero stock variant gadget:', {
+              id: processed.id,
+              name: processed.name,
+              has_variants: processed.has_variants,
+              stock_quantity: processed.stock_quantity,
+              total_variant_stock: processed.total_variant_stock,
+              is_pre_order: processed.is_pre_order,
+              price: processed.price,
+              price_gbp: processed.price_gbp
+            });
+          }
+          
+          return processed;
+        });
         
         // Update state with processed list
         setGadgets(processedGadgets);
@@ -780,6 +798,8 @@ const GadgetsPage = ({ category: propCategory }) => {
                               monthlyPriceGbp={gadget.monthly_price_gbp ?? gadget.monthlyPriceGbp}
                               brand={gadget.brand}
                               condition={gadget.condition}
+                              category={gadget.category}
+                              is_pre_order={gadget.is_pre_order}
                             />
                           </Link>
                         </LazyLoadGadgetCard>
