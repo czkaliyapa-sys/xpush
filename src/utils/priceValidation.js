@@ -80,7 +80,7 @@ export const getPriceValidationError = (price, currency = 'MWK') => {
  * Checks if gadget is available for purchase based on price and stock
  * @param {Object} gadget - Gadget object with price and stock properties
  * @param {string} currency - User's currency
- * @returns {Object} - { isValid: boolean, reason: string }
+ * @returns {{ isValid: boolean, reason: string }} - Validation result
  */
 export const isGadgetAvailableForPurchase = (gadget, currency = 'MWK') => {
   // Check if this is a pre-order item (check multiple possible field names)

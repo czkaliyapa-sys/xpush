@@ -17,7 +17,7 @@ import Alert from "@mui/material/Alert";
 
 import { useCart } from '../contexts/CartContext';
 import { usePricing } from '../hooks/usePricing';
-import CombinedActionButton from '../components/CombinedActionButton.tsx';
+import CombinedActionButton from '../components/CombinedActionButton';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { useWishlist } from '../contexts/WishlistContext.jsx';
@@ -27,10 +27,10 @@ import ButtonBase from '@mui/material/ButtonBase';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import InstallmentModal from '../components/InstallmentModal'
-import QuickBookingModal from '../components/QuickBookingModal.tsx'
-import CartModal from '../components/CartModal.jsx';
-import { recordEvent } from '../services/analyticsApi.js';
+import InstallmentModal from '../components/InstallmentModal.jsx'
+import QuickBookingModal from '../components/QuickBookingModal'
+import CartModal from '../components/CartModal';
+import { recordEvent } from '../services/analyticsApi';
 import { isGadgetAvailableForPurchase } from '../utils/priceValidation';
 import { motion } from 'framer-motion';
 
