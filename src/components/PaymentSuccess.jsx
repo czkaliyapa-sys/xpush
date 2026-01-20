@@ -323,12 +323,14 @@ const PaymentSuccess = () => {
   const formatAmount = (amount, currency) => {
     const code = currency?.toUpperCase() || 'MWK';
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    const divisor = code === 'MWK' ? 1 : 100; // MWK amounts come as whole numbers
-    const finalAmount = (numAmount || 0) / divisor;
+    
+    // For GBP amounts, Square API already returns correct format (already divided by 100)
+    // For MWK amounts, they come as whole numbers
+    const finalAmount = (numAmount || 0);
     
     // Debug logging for pricing issues
     if (process.env.NODE_ENV !== 'production') {
-      console.log('Formatting amount:', { amount, currency: code, divisor, finalAmount });
+      console.log('Formatting amount:', { amount, currency: code, finalAmount });
     }
     
     return new Intl.NumberFormat('en-US', {

@@ -207,7 +207,7 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
       return;
     }
     
-    if (number === 0) return;
+    // Don't return early for zero-stock items - they should be treated as pre-order
     
     setIsProcessing(true);
     
@@ -218,7 +218,10 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
       const cartPrice = isInMalawi 
         ? Number(priceMwk ?? price) 
         : Number(priceGbp ?? price);
-      addToCart({
+      // For zero-stock items, mark as pre-order to allow checkout
+      const isZeroStockItem = number === 0;
+      
+      const cartItem = {
         id,
         title,
         price: cartPrice,
@@ -230,14 +233,25 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
         condition: condition || 'new',
         storage: defaultStorage,
         category,
-        description: description || ''
-      });
+        description: description || '',
+        isPreOrder: isZeroStockItem // Mark zero-stock items as pre-order
+      };
+      
+      console.log('🛒 Adding item to cart:', cartItem);
+      
+      addToCart(cartItem);
+      
       const sid = (typeof window !== 'undefined') ? localStorage.getItem('xp_analytics_sid') : null;
       if (sid) {
         try { recordEvent(sid, 'add_to_cart', { id, title, price: cartPrice, brand, category }); } catch (_) {}
       }
-      setSnackbarMessage('Item added to cart!');
-      setSnackbarOpen(true);
+      
+      // Ensure snackbar shows with a small delay to allow state updates
+      setTimeout(() => {
+        setSnackbarMessage('Item added to cart!');
+        setSnackbarOpen(true);
+        console.log('✅ Snackbar notification shown for item:', title);
+      }, 100);
     } catch (error) {
       console.error('Add to cart error:', error);
     } finally {
@@ -269,7 +283,7 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
         : Number(priceGbp ?? price);
       
       // Add to cart with pre-order flag and treat as available (number=1 for cart purposes)
-      addToCart({
+      const preOrderItem = {
         id,
         title,
         price: cartPrice,
@@ -283,21 +297,27 @@ const ItemCard3D: React.FC<ItemCard3DProps> = ({
         category,
         description: description || '',
         isPreOrder: true // Mark as pre-order
-      });
+      };
       
-      console.log('Pre-order item added to cart:', { id, title, isPreOrder: true });
+      console.log('🛒 Adding pre-order item to cart:', preOrderItem);
+      
+      addToCart(preOrderItem);
       
       const sid = (typeof window !== 'undefined') ? localStorage.getItem('xp_analytics_sid') : null;
       if (sid) {
         try { recordEvent(sid, 'pre_order', { id, title, price: cartPrice, brand, category }); } catch (_) {}
       }
       
+      // Show notification first
+      setSnackbarMessage('Pre-order item added to cart!');
+      setSnackbarOpen(true);
+      
       // Open the cart modal for pre-order checkout after ensuring state updates
-      // Small delay to allow React context state to propagate
+      // Longer delay to allow React context state to propagate and notification to show
       setTimeout(() => {
-        console.log('Opening pre-order cart modal');
+        console.log('📦 Opening pre-order cart modal');
         setPreOrderCartOpen(true);
-      }, 100);
+      }, 300);
     } catch (error) {
       console.error('Pre-order error:', error);
     } finally {

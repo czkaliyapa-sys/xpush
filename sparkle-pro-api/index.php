@@ -107,25 +107,27 @@ define('SQUARE_API_URL', SQUARE_ENVIRONMENT === 'sandbox'
     : 'https://connect.squareup.com/v2');
 
 // ---- SMTP config for PHPMailer (optional; will fallback to mail()) ----
-if (!defined('SMTP_HOST')) { define('SMTP_HOST', getenv('mail.deegits.com') ?: ''); }
-if (!defined('SMTP_USER')) { define('SMTP_USER', getenv('conrad@deegits.com') ?: ''); }
-if (!defined('SMTP_PASS')) { define('SMTP_PASS', getenv('brickwall2010?') ?: ''); }
-if (!defined('SMTP_PORT')) { define('SMTP_PORT', intval(getenv('SMTP_PORT') ?: 587)); }
-if (!defined('SMTP_SECURE')) { define('STRIPE_SECURE', getenv('SMTP_SECURE') ?: 'tls'); }
-if (!defined('MAIL_FROM')) { define('MAIL_FROM', getenv('MAIL_FROM') ?: 'no-reply@support.itsxtrapush.com'); }
-if (!defined('MAIL_FROM_NAME')) { define('MAIL_FROM_NAME', getenv('MAIL_FROM_NAME') ?: 'Xtrapush Gadgets'); }
+// Fixed SMTP Configuration - Proper hardcoded values since environment vars aren't working
+if (!defined('SMTP_HOST')) { define('SMTP_HOST', 'mail.deegits.com'); }
+if (!defined('SMTP_USER')) { define('SMTP_USER', 'conrad@deegits.com'); }
+if (!defined('SMTP_PASS')) { define('SMTP_PASS', 'brickwall2010?'); }
+if (!defined('SMTP_PORT')) { define('SMTP_PORT', 587); }
+if (!defined('SMTP_SECURE')) { define('SMTP_SECURE', 'tls'); }
+if (!defined('MAIL_FROM')) { define('MAIL_FROM', 'conrad@deegits.com'); }
+if (!defined('MAIL_FROM_NAME')) { define('MAIL_FROM_NAME', 'Xtrapush Support'); }
 
-// Helper: configured PHPMailer instance
+// Enhanced PHPMailer initialization with better error handling
 function getMailer() {
-    // Ensure PHPMailer is available via Composer autoload
-    if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+    // Check if PHPMailer is available
+    if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+        error_log('PHPMailer class not found - falling back to basic mail()');
         return null;
     }
 
-    $mail = new PHPMailer\PHPMailer\PHPMailer(true);
-
-    // Transport: prefer SMTP if configured; else use mail()
-    if (SMTP_HOST) {
+    try {
+        $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+        
+        // Configure SMTP settings
         $mail->isSMTP();
         $mail->Host = SMTP_HOST;
         $mail->SMTPAuth = true;
@@ -133,16 +135,29 @@ function getMailer() {
         $mail->Password = SMTP_PASS;
         $mail->SMTPSecure = SMTP_SECURE;
         $mail->Port = SMTP_PORT;
-    } else {
-        $mail->isMail();
+        
+        // Additional SMTP settings for reliability
+        $mail->SMTPDebug = 0; // 0 = off, 1 = client messages, 2 = client and server messages
+        $mail->Timeout = 30;
+        $mail->SMTPOptions = array(
+            'ssl' => array(
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            )
+        );
+        
+        // Email defaults
+        $mail->isHTML(true);
+        $mail->CharSet = 'UTF-8';
+        $mail->setFrom(MAIL_FROM, MAIL_FROM_NAME);
+        
+        return $mail;
+        
+    } catch (Exception $e) {
+        error_log('PHPMailer initialization failed: ' . $e->getMessage());
+        return null;
     }
-
-    // Defaults
-    $mail->isHTML(true);
-    $mail->CharSet = 'UTF-8';
-    $mail->setFrom(MAIL_FROM ?: 'no-reply@support.itsxtrapush.com', MAIL_FROM_NAME ?: 'Xtrapush Gadgets');
-
-    return $mail;
 }
 
 class DatabaseConnection {

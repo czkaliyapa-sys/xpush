@@ -5,18 +5,25 @@ const CartContext = createContext();
 const cartReducer = (state, action) => {
   switch (action.type) {
     case 'ADD_TO_CART':
-      const existingItem = state.items.find(item => item.id === action.payload.id);
+      // Check for existing item with same ID and pre-order status
+      const existingItem = state.items.find(item => 
+        item.id === action.payload.id && 
+        item.isPreOrder === action.payload.isPreOrder
+      );
+      
       if (existingItem) {
-        const stockLimit = action.payload.number || 0;
+        // For pre-order items, we don't limit by stock
+        const stockLimit = action.payload.isPreOrder ? Infinity : (action.payload.number || 0);
         return {
           ...state,
           items: state.items.map(item =>
-            item.id === action.payload.id
+            item.id === action.payload.id && item.isPreOrder === action.payload.isPreOrder
               ? { ...item, quantity: Math.min(item.quantity + 1, stockLimit) }
               : item
           )
         };
       }
+      
       return {
         ...state,
         items: [...state.items, { ...action.payload, quantity: 1 }]
@@ -98,6 +105,36 @@ const cartReducer = (state, action) => {
       };
     }
 
+    case 'UPDATE_ITEM_PRICE_GBP': {
+      const { id, price_gbp } = action.payload;
+      let numericPrice = price_gbp;
+      if (typeof numericPrice === 'string') {
+        numericPrice = parseFloat(numericPrice.replace(/[^0-9.-]+/g, ''));
+      }
+      numericPrice = Number.isFinite(numericPrice) ? numericPrice : 0;
+      return {
+        ...state,
+        items: state.items.map(item =>
+          item.id === id ? { ...item, price_gbp: numericPrice } : item
+        )
+      };
+    }
+
+    case 'UPDATE_ITEM_PRICE_MWK': {
+      const { id, price_mwk } = action.payload;
+      let numericPrice = price_mwk;
+      if (typeof numericPrice === 'string') {
+        numericPrice = parseFloat(numericPrice.replace(/[^0-9.-]+/g, ''));
+      }
+      numericPrice = Number.isFinite(numericPrice) ? numericPrice : 0;
+      return {
+        ...state,
+        items: state.items.map(item =>
+          item.id === id ? { ...item, price_mwk: numericPrice } : item
+        )
+      };
+    }
+
     case 'UPDATE_ITEM_VARIANT_ID': {
       const { id, variantId } = action.payload;
       return {
@@ -148,7 +185,22 @@ export const CartProvider = ({ children }) => {
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
+    console.log('💾 Saving cart to localStorage:', state.items);
     localStorage.setItem('cart', JSON.stringify(state.items));
+  }, [state.items]);
+  
+  // Debug log cart changes
+  useEffect(() => {
+    console.log('🛒 Cart state updated:', {
+      itemCount: state.items.length,
+      items: state.items.map(item => ({
+        id: item.id,
+        title: item.title,
+        quantity: item.quantity,
+        price: item.price,
+        isPreOrder: item.isPreOrder
+      }))
+    });
   }, [state.items]);
 
   const addToCart = (item) => {
@@ -183,6 +235,14 @@ export const CartProvider = ({ children }) => {
     dispatch({ type: 'UPDATE_ITEM_PRICE', payload: { id: itemId, price } });
   };
 
+  const updateItemPriceGbp = (itemId, price_gbp) => {
+    dispatch({ type: 'UPDATE_ITEM_PRICE_GBP', payload: { id: itemId, price_gbp } });
+  };
+
+  const updateItemPriceMwk = (itemId, price_mwk) => {
+    dispatch({ type: 'UPDATE_ITEM_PRICE_MWK', payload: { id: itemId, price_mwk } });
+  };
+
   const updateItemVariantId = (itemId, variantId) => {
     dispatch({ type: 'UPDATE_ITEM_VARIANT_ID', payload: { id: itemId, variantId } });
   };
@@ -197,12 +257,29 @@ export const CartProvider = ({ children }) => {
 
   const getCartTotal = () => {
     return state.items.reduce((total, item) => {
-      let price;
-      if (typeof item.price === 'string') {
-        price = parseFloat(item.price.replace(/[^0-9.-]+/g, ''));
-      } else {
-        price = parseFloat(item.price) || 0;
+      // Use currency-specific pricing if available
+      let price = 0;
+      
+      // Priority order for price selection:
+      // 1. GBP price (primary currency)
+      // 2. MWK price (secondary currency)  
+      // 3. General price field
+      if (item.price_gbp && item.price_gbp > 0) {
+        price = parseFloat(item.price_gbp);
+      } else if (item.price_mwk && item.price_mwk > 0) {
+        price = parseFloat(item.price_mwk);
+      } else if (item.price && item.price > 0) {
+        // Parse string prices or use numeric values
+        if (typeof item.price === 'string') {
+          price = parseFloat(item.price.replace(/[^0-9.-]+/g, ''));
+        } else {
+          price = parseFloat(item.price) || 0;
+        }
       }
+      
+      // Ensure we have a valid price (fallback to 0 if all else fails)
+      price = Number.isFinite(price) && price > 0 ? price : 0;
+      
       // Pre-order items should count as quantity 1 even if stock sync set quantity to 0
       const effectiveQuantity = item.isPreOrder ? Math.max(1, item.quantity) : item.quantity;
       return total + (price * effectiveQuantity);
@@ -224,6 +301,8 @@ export const CartProvider = ({ children }) => {
     updateItemStorage,
     updateItemColor,
     updateItemPrice,
+    updateItemPriceGbp,
+    updateItemPriceMwk,
     updateItemVariantId,
     clearCart,
     toggleCart,

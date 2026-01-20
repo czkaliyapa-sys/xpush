@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -60,7 +60,7 @@ import AuthAlertModal from './AuthAlertModal.tsx';
 import { SUBSCRIPTION_PLAN, getSubscriptionStatus } from '../services/paymentService.js';
 
 const CartModal = ({ open, onClose, gadget }) => {
-  const { items, removeFromCart, updateQuantity, updateItemStock, updateItemCondition, updateItemStorage, updateItemColor, updateItemPrice, updateItemVariantId, clearCart, getCartTotal, addToCart } = useCart();
+  const { items, removeFromCart, updateQuantity, updateItemStock, updateItemCondition, updateItemStorage, updateItemColor, updateItemPrice, updateItemPriceGbp, updateItemPriceMwk, updateItemVariantId, clearCart, getCartTotal, addToCart } = useCart();
   const { user, userProfile } = useAuth();
   const { currency, formatLocalPrice } = usePricing();
   const { country, isMalawi } = useLocation();
@@ -106,7 +106,11 @@ const CartModal = ({ open, onClose, gadget }) => {
     }
     
     setSelectedSubscription(tier);
-    setAgreedToTerms(false);
+    // Only reset agreement when switching between subscription tiers (Plus/Premium)
+    // Keep agreement when switching to/from Standard delivery ('none')
+    if (tier !== 'none' && selectedSubscription !== 'none') {
+      setAgreedToTerms(false);
+    }
   };
 
   // Subscription state - now with Plus and Premium tiers
@@ -144,18 +148,113 @@ const CartModal = ({ open, onClose, gadget }) => {
     checkSubscription();
   }, [user, open]);
 
+  // Refresh cart item prices when modal opens to fix existing items with wrong prices
+  useEffect(() => {
+    const refreshPrices = async () => {
+      if (open && items.length > 0) {
+        console.log('Refreshing cart item prices...');
+        
+        // Process all items in parallel
+        const refreshPromises = items.map(async (item) => {
+          try {
+            // Always fetch fresh gadget data to ensure we have latest pricing
+            console.log(`Fetching fresh data for item ${item.id}`);
+            const response = await gadgetsAPI.getById(item.id);
+            
+            if (response?.success && response?.data) {
+              const gadgetData = response.data;
+              console.log(`Got gadget data for ${item.id}:`, {
+                lowest_variant_price_gbp: gadgetData.lowest_variant_price_gbp,
+                lowest_variant_price: gadgetData.lowest_variant_price,
+                price_gbp: gadgetData.price_gbp,
+                price: gadgetData.price
+              });
+              
+              // Use variant-based pricing if available, with fallback chain
+              const effectivePrice = gadgetData.lowest_variant_price_gbp || 
+                                   gadgetData.lowest_variant_price || 
+                                   gadgetData.price_gbp || 
+                                   gadgetData.price_mwk || 
+                                   gadgetData.price || 0;
+              
+              const effectivePriceGbp = gadgetData.lowest_variant_price_gbp || 
+                                      gadgetData.price_gbp || 
+                                      gadgetData.price || 0;
+              
+              const effectivePriceMwk = gadgetData.lowest_variant_price_mwk || 
+                                      gadgetData.price_mwk || 
+                                      gadgetData.price || 0;
+              
+              console.log(`Updating item ${item.id} prices:`, {
+                oldPrice: item.price,
+                oldPriceGbp: item.price_gbp,
+                oldPriceMwk: item.price_mwk,
+                newPrice: effectivePrice,
+                newPriceGbp: effectivePriceGbp,
+                newPriceMwk: effectivePriceMwk
+              });
+              
+              // Update all price fields to ensure consistency
+              updateItemPrice(item.id, effectivePrice);
+              updateItemPriceGbp(item.id, effectivePriceGbp);
+              updateItemPriceMwk(item.id, effectivePriceMwk);
+              
+              return { id: item.id, success: true };
+            }
+            return { id: item.id, success: false, reason: 'No gadget data' };
+          } catch (error) {
+            console.error('Failed to refresh price for item', item.id, error);
+            return { id: item.id, success: false, error: error.message };
+          }
+        });
+        
+        // Wait for all price refreshes to complete
+        const results = await Promise.all(refreshPromises);
+        console.log('Price refresh results:', results);
+        
+        // Force total recalculation by updating refresh trigger
+        console.log('Triggering total recalculation after price refresh');
+        setRefreshTrigger(prev => prev + 1);
+      }
+    };
+    
+    refreshPrices();
+  }, [open, items, updateItemPrice, updateItemPriceGbp, updateItemPriceMwk]);
+
   // Add gadget to cart when modal opens with a gadget prop
   useEffect(() => {
     if (open && gadget && gadget.id) {
-      addToCart({
+      console.log('📦 CartModal: Adding gadget to cart', {
+        id: gadget.id,
+        name: gadget.name || gadget.title,
+        priceFields: {
+          lowest_variant_price_gbp: gadget.lowest_variant_price_gbp,
+          lowest_variant_price: gadget.lowest_variant_price,
+          price_gbp: gadget.price_gbp,
+          price_mwk: gadget.price_mwk,
+          price: gadget.price
+        }
+      });
+      
+      // Use variant-based pricing if available
+      const effectivePrice = gadget.lowest_variant_price_gbp || gadget.lowest_variant_price || 
+                            gadget.price_gbp || gadget.price_mwk || gadget.price || 0;
+      
+      const cartItem = {
         id: gadget.id,
         title: gadget.name || gadget.title,
         brand: gadget.brand || '',
-        price: gadget.price || gadget.price_gbp || gadget.price_mwk || 0,
+        price: effectivePrice,
+        price_gbp: gadget.lowest_variant_price_gbp || gadget.price_gbp || gadget.price || 0,
+        price_mwk: gadget.lowest_variant_price_mwk || gadget.price_mwk || gadget.price || 0,
         image: gadget.image || '',
         condition: 'like_new',
-        quantity: 1
-      });
+        quantity: 1,
+        isPreOrder: gadget.is_pre_order === 1 || gadget.is_pre_order === true || gadget.number === 0
+      };
+      
+      console.log('🛒 CartModal: Final cart item to add:', cartItem);
+      addToCart(cartItem);
     }
   }, [open, gadget, addToCart]);
 
@@ -323,7 +422,14 @@ const CartModal = ({ open, onClose, gadget }) => {
                 String(v.condition_status) === String(normalizedCond)
               );
               if (match) {
-                updateItemPrice(u.id, match.price_gbp || match.price);
+                // Preserve currency-specific pricing when updating variant match
+                const variantPriceGbp = match.price_gbp || match.priceGbp || match.price || 0;
+                const variantPriceMwk = match.price_mwk || match.priceMwk || match.price || 0;
+                
+                // Update ALL price fields to maintain dual-currency support
+                updateItemPrice(u.id, isMalawi ? variantPriceMwk : variantPriceGbp);
+                updateItemPriceGbp(u.id, variantPriceGbp);
+                updateItemPriceMwk(u.id, variantPriceMwk);
                 updateItemVariantId(u.id, match.id);
                 const vStock = Math.max(0, parseInt(match.stock_quantity ?? 0, 10) || 0);
                 updateItemStock(u.id, vStock);
@@ -422,11 +528,15 @@ const CartModal = ({ open, onClose, gadget }) => {
       String(v.condition_status) === String(selectedCondition)
     );
     if (match) {
-      // Use MWK price for Malawi users, GBP for international
-      const variantPrice = isMalawi 
-        ? (match.price || match.price_gbp) 
-        : (match.price_gbp || match.price);
-      updateItemPrice(itemId, variantPrice);
+      // Preserve currency-specific pricing when resolving variant
+      const variantPriceGbp = match.price_gbp || match.priceGbp || match.price || 0;
+      const variantPriceMwk = match.price_mwk || match.priceMwk || match.price || 0;
+      
+      // Update ALL price fields to maintain dual-currency support
+      const effectivePrice = isMalawi ? variantPriceMwk : variantPriceGbp;
+      updateItemPrice(itemId, effectivePrice);
+      updateItemPriceGbp(itemId, variantPriceGbp);
+      updateItemPriceMwk(itemId, variantPriceMwk);
       updateItemVariantId(itemId, match.id);
       const vStock = Math.max(0, parseInt(match.stock_quantity ?? 0, 10) || 0);
       updateItemStock(itemId, vStock);
@@ -571,7 +681,22 @@ const CartModal = ({ open, onClose, gadget }) => {
     }
     
     // Block checkout if any item is out of stock or has zero quantity
-    const hasInvalidItem = items.some(it => (it?.number || 0) <= 0 || (it?.quantity || 0) <= 0);
+    // Exception: Allow pre-order items (isPreOrder: true) even with zero stock
+    console.log('🔐 Checkout validation - items:', items.map(it => ({
+      id: it.id,
+      title: it.title,
+      number: it.number,
+      quantity: it.quantity,
+      isPreOrder: it.isPreOrder,
+      isValid: ((it?.number || 0) > 0 || it?.isPreOrder) && ((it?.quantity || 0) > 0 || it?.isPreOrder)
+    })));
+    
+    const hasInvalidItem = items.some(it => {
+      const isInvalid = ((it?.number || 0) <= 0 && !it?.isPreOrder) || 
+                       ((it?.quantity || 0) <= 0 && !it?.isPreOrder);
+      console.log(`Item ${it.id} (${it.title}): number=${it.number}, quantity=${it.quantity}, isPreOrder=${it.isPreOrder}, isInvalid=${isInvalid}`);
+      return isInvalid;
+    });
     if (hasInvalidItem) {
       alert('Your cart contains out-of-stock items. Please remove them before checkout.');
       return;
@@ -636,10 +761,37 @@ const CartModal = ({ open, onClose, gadget }) => {
 
       // Extra safety: exclude any zero-quantity items
       const filteredItemsForPayment = itemsForPayment.filter(i => i.quantity > 0);
-      const sessionItems = filteredItemsForPayment.map(it => ({
+      let sessionItems = filteredItemsForPayment.map(it => ({
         ...it,
         variantId: items.find(ci => ci.id === it.id)?.variantId || undefined
       }));
+      
+      // Add delivery fee as a separate line item if applicable
+      if (deliveryFee > 0) {
+        sessionItems.push({
+          id: 'delivery_fee',
+          name: isMalawi ? 'Standard Delivery' : 'Standard Postage',
+          price: deliveryFee,
+          quantity: 1,
+          isDeliveryFee: true
+        });
+      }
+      
+      // Add subscription fee as a separate line item if applicable
+      if (subscriptionFee > 0 && subscriptionToInclude) {
+        const subscriptionNames = {
+          'plus': 'Xtrapush Plus',
+          'premium': 'Xtrapush Premium'
+        };
+        sessionItems.push({
+          id: `subscription_${subscriptionToInclude}`,
+          name: `${subscriptionNames[subscriptionToInclude] || 'Subscription'} (Monthly)` ,
+          price: subscriptionFee,
+          quantity: 1,
+          isSubscription: true,
+          note: 'Free delivery, insurance & discounts - Monthly subscription'
+        });
+      }
       
       // Step 2: Prepare payment session
       setProcessingStep(2);
@@ -689,12 +841,15 @@ const CartModal = ({ open, onClose, gadget }) => {
       try {
         localStorage.setItem('xp_lastCheckout', JSON.stringify({
           items: sessionItems,
+          subtotal: total,
+          deliveryFee: deliveryFee,
+          subscriptionFee: subscriptionFee,
+          subscriptionTier: subscriptionToInclude,
           installmentPlan: null,
           customerEmail: user?.email || null,
           provider: isMalawi ? 'paychangu' : 'square',
           currency: paymentCurrency,
-          includesSubscription: subscriptionToInclude !== null,
-          subscriptionTier: subscriptionToInclude
+          includesSubscription: subscriptionToInclude !== null
         }));
       } catch (_) {}
       
@@ -726,7 +881,14 @@ const CartModal = ({ open, onClose, gadget }) => {
     option.countries.includes('all') || option.countries.includes(userCountry)
   );
 
-  const total = getCartTotal();
+  // Calculate total with force refresh to ensure latest prices are used
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  // Recalculate total when items or refresh trigger changes
+  const total = useMemo(() => {
+    console.log('Recalculating cart total with items:', items);
+    return getCartTotal();
+  }, [getCartTotal, items, refreshTrigger]);
   // Calculate fees based on region and selected subscription tier
   // UK/International (GBP): Plus £6.00/mo, Premium £9.99/mo, Standard Postage £4.99
   // Malawi (MWK): Plus MWK 6,000/mo, Premium MWK 10,000/mo, Standard Delivery MWK 2,000
@@ -840,13 +1002,61 @@ const CartModal = ({ open, onClose, gadget }) => {
                       </Typography>
                       <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.875rem' }}>
                         {(() => {
+                          // Comprehensive debug logging
+                          console.log('🔍 Cart item debug:', {
+                            id: item.id,
+                            title: item.title,
+                            quantity: item.quantity,
+                            price: item.price,
+                            price_gbp: item.price_gbp,
+                            price_mwk: item.price_mwk,
+                            lowest_variant_price: item.lowest_variant_price,
+                            lowest_variant_price_gbp: item.lowest_variant_price_gbp,
+                            lowest_variant_price_mwk: item.lowest_variant_price_mwk,
+                            number: item.number
+                          });
+                          
+                          // Use variant-based pricing if available, with proper fallback chain
                           let unitPrice;
-                          if (typeof item.price === 'string') {
-                            unitPrice = parseFloat(item.price.replace(/[^0-9.-]+/g, ''));
-                          } else {
-                            unitPrice = parseFloat(item.price) || 0;
+                          
+                          // Priority 1: Currency-specific variant prices
+                          if (isMalawi && item.price_mwk) {
+                            unitPrice = parseFloat(item.price_mwk);
+                          } else if (!isMalawi && item.price_gbp) {
+                            unitPrice = parseFloat(item.price_gbp);
                           }
-                          return `${formatLocalPrice(unitPrice)} each`;
+                          // Priority 2: Use variant-based lowest prices if main prices aren't set
+                          else if (isMalawi && item.lowest_variant_price_mwk) {
+                            unitPrice = parseFloat(item.lowest_variant_price_mwk);
+                          } else if (!isMalawi && item.lowest_variant_price_gbp) {
+                            unitPrice = parseFloat(item.lowest_variant_price_gbp);
+                          }
+                          // Priority 3: General variant prices
+                          else if (item.lowest_variant_price) {
+                            unitPrice = parseFloat(item.lowest_variant_price);
+                          }
+                          // Priority 4: Fallback to general price field
+                          else if (item.price) {
+                            if (typeof item.price === 'string') {
+                              unitPrice = parseFloat(item.price.replace(/[^0-9.-]+/g, ''));
+                            } else {
+                              unitPrice = parseFloat(item.price);
+                            }
+                          }
+                          // Final fallback
+                          else {
+                            console.warn('No unit price found for item:', item.id, item.title);
+                            unitPrice = 0;
+                          }
+                          
+                          // Ensure we have a valid price
+                          const finalUnitPrice = unitPrice && !isNaN(unitPrice) ? unitPrice : 0;
+                          
+                          if (finalUnitPrice === 0) {
+                            console.warn('Item has zero unit price:', item.id, item.title);
+                          }
+                          
+                          return `${formatLocalPrice(finalUnitPrice)} each`;
                         })()}
                       </Typography>
                       
@@ -1073,13 +1283,95 @@ const CartModal = ({ open, onClose, gadget }) => {
                         color: 'white'
                       }}>
                         {(() => {
+                          // Comprehensive debug logging for total price
+                          console.log('💰 Total price calculation:', {
+                            id: item.id,
+                            title: item.title,
+                            rawQuantity: item.quantity,
+                            parsedQuantity: parseInt(item.quantity),
+                            finalQuantity: parseInt(item.quantity) || 1,
+                            priceFields: {
+                              price: item.price,
+                              price_gbp: item.price_gbp,
+                              price_mwk: item.price_mwk,
+                              lowest_variant_price: item.lowest_variant_price,
+                              lowest_variant_price_gbp: item.lowest_variant_price_gbp,
+                              lowest_variant_price_mwk: item.lowest_variant_price_mwk
+                            }
+                          });
+                          
+                          // Use variant-based pricing if available, with proper fallback chain
                           let price;
-                          if (typeof item.price === 'string') {
-                            price = parseFloat(item.price.replace(/[^0-9.-]+/g, ''));
-                          } else {
-                            price = parseFloat(item.price) || 0;
+                          
+                          // Priority 1: Currency-specific variant prices
+                          if (isMalawi && item.price_mwk) {
+                            price = parseFloat(item.price_mwk);
+                          } else if (!isMalawi && item.price_gbp) {
+                            price = parseFloat(item.price_gbp);
+                          } 
+                          // Priority 2: Use variant-based lowest prices if main prices aren't set
+                          else if (isMalawi && item.lowest_variant_price_mwk) {
+                            price = parseFloat(item.lowest_variant_price_mwk);
+                          } else if (!isMalawi && item.lowest_variant_price_gbp) {
+                            price = parseFloat(item.lowest_variant_price_gbp);
+                          } 
+                          // Priority 3: General variant prices
+                          else if (item.lowest_variant_price) {
+                            price = parseFloat(item.lowest_variant_price);
                           }
-                          return formatLocalPrice(price * item.quantity);
+                          // Priority 4: Fallback to general price field
+                          else if (item.price) {
+                            if (typeof item.price === 'string') {
+                              price = parseFloat(item.price.replace(/[^0-9.-]+/g, ''));
+                            } else {
+                              price = parseFloat(item.price);
+                            }
+                          }
+                          // Final fallback - this should rarely happen
+                          else {
+                            console.warn('No price found for item:', item.id, item.title);
+                            price = 0;
+                          }
+                          
+                          // Ensure we have a valid price
+                          const finalPrice = price && !isNaN(price) ? price : 0;
+                          const quantity = parseInt(item.quantity) || 1; // Default to 1 if quantity is invalid
+                          
+                          console.log('🧮 Price calculation result:', {
+                            itemId: item.id,
+                            title: item.title,
+                            finalPrice: finalPrice,
+                            quantity: quantity,
+                            totalPrice: finalPrice * quantity
+                          });
+                          
+                          if (finalPrice === 0) {
+                            console.warn('Item has zero price:', item.id, item.title, {
+                              price_mwk: item.price_mwk,
+                              price_gbp: item.price_gbp,
+                              lowest_variant_price_mwk: item.lowest_variant_price_mwk,
+                              lowest_variant_price_gbp: item.lowest_variant_price_gbp,
+                              lowest_variant_price: item.lowest_variant_price,
+                              price: item.price,
+                              quantity: item.quantity
+                            });
+                          }
+                          
+                          // Debug logging for zero total issue
+                          if (finalPrice > 0 && quantity > 0 && finalPrice * quantity === 0) {
+                            console.error('Price calculation anomaly:', {
+                              itemId: item.id,
+                              title: item.title,
+                              finalPrice: finalPrice,
+                              quantity: quantity,
+                              calculatedTotal: finalPrice * quantity,
+                              priceType: typeof finalPrice,
+                              quantityType: typeof quantity
+                            });
+                          }
+                          
+                          const totalPrice = finalPrice * quantity;
+                          return formatLocalPrice(totalPrice);
                         })()}
                       </Typography>
                     </Box>
@@ -1090,60 +1382,7 @@ const CartModal = ({ open, onClose, gadget }) => {
 
             <Divider sx={{ my: 2, bgcolor: 'rgba(255, 255, 255, 0.3)' }} />
 
-            {/* Order Summary */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h6" gutterBottom>Order Summary</Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography>Subtotal:</Typography>
-                <Typography>{formatLocalPrice(total)}</Typography>
-              </Box>
-              {/* International Premium/Plus */}
-              {!isMalawi && subscriptionFee > 0 && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-                    Xtrapush {selectedSubscription === 'plus' ? 'Plus' : 'Premium'} (Monthly):
-                  </Typography>
-                  <Typography sx={{ color: '#48CEDB' }}>£{subscriptionFee.toFixed(2)}</Typography>
-                </Box>
-              )}
-              {/* International Postage */}
-              {!isMalawi && deliveryFee > 0 && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-                    Standard Postage:
-                  </Typography>
-                  <Typography sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>£{deliveryFee.toFixed(2)}</Typography>
-                </Box>
-              )}
-              {/* Malawi Premium/Plus */}
-              {isMalawi && subscriptionFee > 0 && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-                    Xtrapush {selectedSubscription === 'plus' ? 'Plus' : 'Premium'} (Monthly):
-                  </Typography>
-                  <Typography sx={{ color: '#48CEDB' }}>MWK {subscriptionFee.toLocaleString()}</Typography>
-                </Box>
-              )}
-              {/* Malawi Delivery */}
-              {isMalawi && deliveryFee > 0 && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-                    Delivery Fee:
-                  </Typography>
-                  <Typography sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>MWK {deliveryFee.toLocaleString()}</Typography>
-                </Box>
-              )}
-              <Divider sx={{ my: 1, bgcolor: 'rgba(255, 255, 255, 0.3)' }} />
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                <Typography variant="h6">Total:</Typography>
-                <Typography variant="h6">{formatLocalPrice(finalTotal)}</Typography>
-              </Box>
-              {subscriptionFee > 0 && (
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', display: 'block', mt: 0.5 }}>
-                  * {selectedSubscription === 'plus' ? 'Plus' : 'Premium'} subscription billed monthly after first payment
-                </Typography>
-              )}
-            </Box>
+
 
             {/* Country Selection hidden per request */}
             {/* <Box sx={{ mb: 3 }}> ... </Box> */}
@@ -1331,7 +1570,7 @@ const CartModal = ({ open, onClose, gadget }) => {
 
                     {/* Option 3: Standard Delivery */}
                     <Box
-                      onClick={() => { setSelectedSubscription('none'); setAgreedToTerms(false); }}
+                      onClick={() => handleSubscriptionSelect('none')}
                       sx={{
                         p: 2.5,
                         borderRadius: 2,
